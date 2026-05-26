@@ -1,0 +1,12 @@
+node_modules
+coverage
+dist
+package-lock.json
+
+# Code is handled by Biome
+src
+tests
+*.ts
+*.js
+*.json
+biome.json
