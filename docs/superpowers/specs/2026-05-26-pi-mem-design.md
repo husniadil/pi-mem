@@ -2,7 +2,7 @@
 title: pi-mem — Design Spec
 status: Draft
 date: 2026-05-26
-author: Husni Adil <husni.adil@gmail.com>
+author: Husni Adil Makmur <husni.adil@gmail.com>
 ---
 
 # pi-mem — Design Spec
@@ -334,7 +334,7 @@ Run manually in local dev. CI runs them only when `claude-mem` is pre-installed 
   "description": "Pi extension that bridges to claude-mem for persistent cross-session memory",
   "type": "module",
   "license": "MIT",
-  "author": "Husni Adil <husni.adil@gmail.com>",
+  "author": "Husni Adil Makmur <husni.adil@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/husniadil/pi-mem.git"
