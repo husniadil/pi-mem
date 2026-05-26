@@ -190,6 +190,14 @@ describe('timeline', () => {
     expect(url).not.toMatch(/project=/);
   });
 
+  it('treats empty-string anchor as no anchor (avoids bogus ?anchor= URL)', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await timeline({ anchor: '', query: 'fallback' }, { env, logger: log, timeoutMs: 1000 });
+    const url = fetchMock.mock.calls[0]![0];
+    expect(url).toBe('http://127.0.0.1:37777/api/timeline?query=fallback');
+    expect(url).not.toMatch(/anchor=/);
+  });
+
   it('returns parsed JSON (MCP content shape) on success', async () => {
     const body = { content: [{ type: 'text', text: 'timeline markdown' }] };
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });

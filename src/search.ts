@@ -90,7 +90,7 @@ export async function timeline(
   const host = resolveHost(opts.env);
   const port = resolvePort(opts.env);
   const qs = new URLSearchParams();
-  if (params.anchor !== undefined) qs.set('anchor', String(params.anchor));
+  if (params.anchor !== undefined && params.anchor !== '') qs.set('anchor', String(params.anchor));
   if (typeof params.query === 'string' && params.query.length > 0) qs.set('query', params.query);
   if (typeof params.depth_before === 'number' && params.depth_before > 0) qs.set('depth_before', String(params.depth_before));
   if (typeof params.depth_after === 'number' && params.depth_after > 0) qs.set('depth_after', String(params.depth_after));

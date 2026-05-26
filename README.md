@@ -1,6 +1,6 @@
 # @husniadil/pi-mem
 
-Pi extension that bridges to [claude-mem](https://github.com/thedotmack/claude-mem) for persistent cross-session memory. Mirrors Claude Code's memory UX inside pi: auto-injects context at session start (with TUI banner), captures pi events as observations, and exposes `mem_search` to the agent.
+Pi extension that bridges to [claude-mem](https://github.com/thedotmack/claude-mem) for persistent cross-session memory. Mirrors Claude Code's memory UX inside pi: auto-injects context at session start (with TUI banner), captures pi events as observations, and exposes the full 3-layer memory workflow (`mem_search` → `mem_timeline` → `mem_get_observations`) to the agent.
 
 ## Important: Maintainer Non-Support
 
@@ -25,7 +25,10 @@ Restart pi. The extension auto-loads.
 1. **session_start**: pi-mem verifies claude-mem is installed, starts the worker if needed, fetches recent observations via `worker-service.cjs hook pi context`, and displays the TUI banner via `ctx.ui.notify(...)`.
 2. **before_agent_start** (every turn): re-injects the cached context into `systemPrompt`, wrapped in `<claude-mem-context>...</claude-mem-context>`. Identical content across turns → LLM prompt cache hits.
 3. **message_end / tool_result / agent_end**: fire-and-forget subprocess spawns to log events as claude-mem observations.
-4. **`mem_search` tool**: HTTP GET to claude-mem worker's `/api/search` endpoint.
+4. **Agent tools** (HTTP to claude-mem worker — mirrors the Claude Code MCP 3-layer workflow):
+   - **`mem_search({query, limit?})`** — `GET /api/search`. Returns a categorized markdown table of matching observations/sessions/prompts with IDs in `| #<id> |` cells. Limit caps each category, so total results can be up to 3× limit.
+   - **`mem_timeline({anchor?|query?, depth_before?, depth_after?, project?})`** — `GET /api/timeline`. Step 2 of the workflow: returns N items before/after an anchor for context. Anchor accepts observation ID (number), session ID (`S<id>`), or ISO timestamp. XOR with `query` — provide one or the other, not both. Defaults: `depth_before=10`, `depth_after=10`.
+   - **`mem_get_observations({ids, orderBy?, limit?, project?})`** — `POST /api/observations/batch`. Step 3: fetch the full 23-field records (title, narrative, facts, files_modified, etc.) for IDs surfaced by `mem_search`. Output is raw JSON (matches Claude Code's MCP `get_observations` 1:1). Non-existent IDs silently dropped.
 
 ## Configuration
 
@@ -54,7 +57,7 @@ Inherited from claude-mem (transparent — no pi-mem env var introduced):
 - **`claude-mem is not installed`** — run `npx claude-mem install`.
 - **`claude-mem worker failed to start`** — try `npx claude-mem start` manually. Inspect with `npx claude-mem status`.
 - **No TUI banner** — set `CLAUDE_MEM_CONTEXT_SHOW_TERMINAL_OUTPUT=true` in `~/.claude-mem/settings.json` (claude-mem only emits `systemMessage` when this is on).
-- **Memory feels stale** — pi-mem caches the auto-injected context once per session at `session_start`, so newly captured observations won't appear in `systemPrompt` until you restart the pi session. The `mem_search` tool is unaffected — it always hits the live `/api/search` endpoint and reflects current corpus state, so use it when you need up-to-date results mid-session.
+- **Memory feels stale** — pi-mem caches the auto-injected context once per session at `session_start`, so newly captured observations won't appear in `systemPrompt` until you restart the pi session. The `mem_search` / `mem_timeline` / `mem_get_observations` tools are unaffected — they always hit live HTTP endpoints and reflect current corpus state, so use them when you need up-to-date results mid-session.
 
 ## License
 
