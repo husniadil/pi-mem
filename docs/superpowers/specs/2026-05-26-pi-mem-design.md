@@ -58,11 +58,11 @@ A pi extension package that bridges pi sessions to an existing `claude-mem` inst
 │   ├── paths.ts                    # worker-service.cjs + bun-runner.js discovery
 │   ├── port.ts                     # claude-mem worker port discovery
 │   ├── worker.ts                   # subprocess invoker for hook commands
-│   ├── search.ts                   # HTTP client for /api/search (mem_search only)
+│   ├── search.ts                   # HTTP client for /api/search + /api/observations/batch
 │   ├── session.ts                  # in-memory per-session state
 │   ├── inject.ts                   # session_start fetch + before_agent_start re-inject
 │   ├── capture.ts                  # message_end / tool_result / agent_end → spawn worker
-│   ├── tool.ts                     # pi.registerTool({ name: 'mem_search', ... })
+│   ├── tool.ts                     # pi.registerTool({ name: 'mem_search' | 'mem_get_observations', ... })
 │   ├── preflight.ts                # file-existence + version sanity
 │   ├── logger.ts                   # pi.logger wrapper with secret redaction
 │   └── types.ts                    # shared types
@@ -134,6 +134,14 @@ LLM calls mem_search({query, limit?}):
                                                                  (MCP content-block, pre-formatted markdown)
                     ─►   extractMarkdown(res.content) → text
                     ─►   return text verbatim to LLM (claude-mem owns formatting)
+
+LLM calls mem_get_observations({ids, orderBy?, limit?, project?}):
+                    ─►   search.getObservations(           ─►   POST http://127.0.0.1:<port>/api/observations/batch
+                          {ids, orderBy, limit, project})        body: {ids, orderBy?, limit?, project?}
+                                                                 response: bare JSON array of ObservationRecord
+                                                                 (23 fields each; non-existent IDs silently dropped)
+                    ─►   JSON.stringify(array, null, 2) → text
+                    ─►   return text verbatim to LLM (matches Claude Code MCP get_observations passthrough)
 ```
 
 ### 4.2 Per-session in-memory state
@@ -225,6 +233,26 @@ No retry, no queue, no in-memory buffer. Lost events are acceptable — the corp
 The only "secret" surface is whatever lives in `~/.claude-mem/settings.json` — pi-mem only reads `CLAUDE_MEM_WORKER_PORT` from it, never an API key (local mode has no API key). Still:
 - `logger.ts` redacts `Bearer\s+\S+` patterns from any value passed (defensive).
 - Settings file is read once at startup, port value retained in closure scope.
+
+### 5.6 `mem_get_observations` tool — RETURN ERROR TO LLM
+
+| Condition | Action |
+|---|---|
+| `state.enabled === false` | Return `"Error: pi-mem disabled (preflight failed)"` to LLM |
+| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."` |
+| HTTP non-2xx | Return `"Error: get_observations HTTP <status>"` (shape: `Error: <thrown.message>`; thrown from `getObservations` as `get_observations HTTP N`) |
+| Empty `ids` array | claude-mem returns `[]`; pi-mem passes through as `"[]"` (JSON-stringified). No HTTP call optimization at MVP — let claude-mem decide. |
+| Success | Pass through `JSON.stringify(response, null, 2)` — claude-mem returns a bare array of observation records |
+
+**Output format note:** Unlike `/api/search` which returns pre-formatted markdown in an MCP content-block, `/api/observations/batch` returns a bare JSON array of observation records (each with 23 fields: `id`, `memory_session_id`, `project`, `text`, `type`, `title`, `subtitle`, `facts`, `narrative`, `concepts`, `files_read`, `files_modified`, `prompt_number`, `discovery_tokens`, `created_at`, `created_at_epoch`, `content_hash`, `generated_by_model`, `relevance_count`, `merged_into_project`, `agent_type`, `agent_id`, `metadata`). pi-mem stringifies the response with 2-space indentation — matching claude-mem's own MCP `get_observations` tool which uses `JSON.stringify(data, null, 2)` (see `claude-mem/src/servers/mcp-server.ts:111-136`). No local formatting; the LLM consumes raw JSON.
+
+**Parameter contract** (matches `observationsBatchSchema` in claude-mem's `DataRoutes.ts:49`):
+- `ids`: `number[]` (required) — observation IDs to fetch. Non-existent IDs silently dropped.
+- `orderBy`: `'date_desc' | 'date_asc'` (optional)
+- `limit`: positive integer (optional) — post-filter cap on returned records
+- `project`: string (optional) — restrict to one project
+
+**Why JSON passthrough (not markdown):** Claude Code's MCP `get_observations` tool already returns raw JSON via `JSON.stringify(data, null, 2)`. Matching that means the LLM sees the same payload across Claude Code and pi — same workflow (`mem_search` → IDs → `mem_get_observations` → full records) works identically. The 23 fields contain dense structured data (facts arrays, file lists, concept tags) that lossy markdown-summarization would discard.
 
 ## 6. Configuration
 
@@ -359,9 +387,7 @@ Not blockers for MVP. Documented for the next iteration.
 - **Monorepo identity.** `realpath(cwd)` means two pi sessions in different subdirs of the same repo are two claude-mem projects. Acceptable for MVP. If users complain, add a `PI_MEM_PROJECT_ROOT` env override.
 - **Submitting an upstream `pi` adapter.** If the maintainer changes their stance, replace `rawAdapter`-via-`default` with an explicit `pi` adapter case. Code-path stays subprocess; only the platform-name validation moves upstream.
 - **Capture batching.** If subprocess spawn rate (one per tool_result) ever becomes a measurable cost, switch capture to a long-lived child process with stdin-multiplexing. Not needed at MVP scale.
-- **Pi tool surface beyond `mem_search`.** If demand emerges, add tools that wrap claude-mem's other MCP-facing endpoints:
-  - **`mem_get_observations({ ids: number[] })`** — fetch full observation records (title, narrative, facts, files, etc.) by ID. Claude Code's UX uses this after `mem_search` returns IDs in the result table. Endpoint: `POST /api/observations/batch` body `{ ids: number[] }` → bare array of records (23 fields each; non-existent IDs silently dropped). 2026-05-26 probe confirmed shape; tracked as a future task post-MVP.
-  - **`mem_recent`**, **`mem_smart_search`**, **`mem_timeline`**, etc. — wrap `/api/*` endpoints corresponding to the MCP tools `smart_search`, `smart_outline`, `timeline`, `memory_context` already exposed by claude-mem.
+- **Pi tool surface beyond `mem_search` + `mem_get_observations`.** If demand emerges, add tools that wrap claude-mem's other MCP-facing endpoints: **`mem_recent`**, **`mem_smart_search`**, **`mem_timeline`**, etc. — wrap `/api/*` endpoints corresponding to the MCP tools `smart_search`, `smart_outline`, `timeline`, `memory_context` already exposed by claude-mem.
 
 ## 10. Revision History
 
@@ -374,4 +400,5 @@ Code snippets in this spec were corrected post-execution on 2026-05-26 to match 
 | 2026-05-26 | `c9e88bd` | (none in spec; see plan T12) | `extractTextContent` helper for pi 0.74+ content-block message arrays. |
 | 2026-05-26 | `6f5aa02` | §4.2 | `state.rootPath` derived from `ctx.cwd` (pi-canonical) with `process.cwd()` fallback. |
 | 2026-05-26 | `e05dc97` | §4.4 | `setTimeout` for capture force-kill also `.unref()`'d alongside `child.unref()` so pi can exit cleanly. |
+| 2026-05-26 | (pending) | §3.1, §4.1, §5.6, §9 | Promoted `mem_get_observations` from §9 future work to active spec scope. Adds `/api/observations/batch` POST wrapper to `src/search.ts`, `mem_get_observations` registerTool definition in `src/tool.ts`/`src/index.ts`, and §5.6 error matrix mirroring §5.4. Output is `JSON.stringify(records, null, 2)` passthrough (matches Claude Code MCP `get_observations`). |
 - **TUI widget for inject status.** Instead of one-shot `ctx.ui.notify`, use `ctx.ui.setStatus('pi-mem', '✓ memory loaded (N obs)')` for sustained footer indication.
