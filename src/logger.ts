@@ -1,7 +1,11 @@
 import type { LogLevel } from './types.ts';
 
 const LEVELS: Record<LogLevel, number> = {
-  silent: 0, error: 1, warn: 2, info: 3, debug: 4
+  silent: 0,
+  error: 1,
+  warn: 2,
+  info: 3,
+  debug: 4
 };
 
 function redact(msg: string): string {
@@ -22,9 +26,9 @@ export function createLogger(level: LogLevel): Logger {
     console.error(`[pi-mem] ${lvl}: ${redact(msg)}`);
   };
   return {
-    error: m => emit('error', m),
-    warn:  m => emit('warn',  m),
-    info:  m => emit('info',  m),
-    debug: m => emit('debug', m)
+    error: (m) => emit('error', m),
+    warn: (m) => emit('warn', m),
+    info: (m) => emit('info', m),
+    debug: (m) => emit('debug', m)
   };
 }

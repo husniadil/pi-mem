@@ -7,8 +7,12 @@ import { resolvePort, resolveHost } from '../../src/port.ts';
 vi.mock('node:fs', { spy: true });
 
 describe('port discovery', () => {
-  beforeEach(() => { vi.spyOn(fs, 'readFileSync').mockImplementation(() => '{}'); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    vi.spyOn(fs, 'readFileSync').mockImplementation(() => '{}');
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('prefers env CLAUDE_MEM_WORKER_PORT', () => {
     expect(resolvePort({ CLAUDE_MEM_WORKER_PORT: '9999', HOME: '/home/u' })).toBe('9999');

@@ -12,7 +12,12 @@ import { createLogger } from '../../src/logger.ts';
 
 const log = createLogger('silent');
 const env = process.env;
-const claudeMemRoot = join(env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'plugins', 'marketplaces', 'thedotmack');
+const claudeMemRoot = join(
+  env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'),
+  'plugins',
+  'marketplaces',
+  'thedotmack'
+);
 const haveClaudeMem = existsSync(claudeMemRoot);
 
 describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
@@ -26,7 +31,10 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
   }, 70000);
 
   it('hook pi context returns a JSON object with optional hookSpecificOutput', async () => {
-    const r = await runHook(paths, 'pi', 'context',
+    const r = await runHook(
+      paths,
+      'pi',
+      'context',
       { sessionId: 'pi-mem-integration-test', cwd: process.cwd() },
       { timeoutMs: 30000, logger: log }
     );
@@ -36,7 +44,10 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
 
   it('hook pi observation accepts payload and exits 0', async () => {
     await expect(
-      runHook(paths, 'pi', 'observation',
+      runHook(
+        paths,
+        'pi',
+        'observation',
         {
           sessionId: 'pi-mem-integration-test',
           cwd: process.cwd(),
@@ -50,7 +61,7 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
   });
 
   it('GET /api/search responds (any status code, no network error)', async () => {
-    const res = await search('integration test query', { env, logger: log, timeoutMs: 5000 }).catch(e => e);
+    const res = await search('integration test query', { env, logger: log, timeoutMs: 5000 }).catch((e) => e);
     // Acceptable: either a SearchResponse object, or an Error with HTTP status
     expect(res).toBeDefined();
   });
@@ -75,10 +86,7 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
 
   it('DRIFT GUARD: handleSearch end-to-end returns non-empty markdown via extractMarkdown', async () => {
     const state = { ...createSessionState({ sessionId: 'pi-mem-integration-test', rootPath: process.cwd() }) };
-    const markdown = await handleSearch(
-      { query: 'the' },
-      { state, env, logger: log, timeoutMs: 5000 }
-    );
+    const markdown = await handleSearch({ query: 'the' }, { state, env, logger: log, timeoutMs: 5000 });
     // Should be either real results markdown or the "Found 0" message — never the
     // "empty or malformed" fallback that signaled the original bug.
     expect(markdown).not.toMatch(/empty or malformed/i);
@@ -103,13 +111,16 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
     // forwards that without normalization (regression), claude-mem may reject
     // or store garbage. Verify it doesn't crash and exits 0.
     await expect(
-      runHook(paths, 'pi', 'observation',
+      runHook(
+        paths,
+        'pi',
+        'observation',
         {
           sessionId: 'pi-mem-integration-test',
           cwd: process.cwd(),
           toolName: 'mem_search',
           toolInput: { query: 'WBR' },
-          toolResponse: 'Found 3 results matching WBR'  // already-normalized text
+          toolResponse: 'Found 3 results matching WBR' // already-normalized text
         },
         { timeoutMs: 30000, logger: log }
       )
@@ -118,11 +129,14 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
 
   it('DRIFT GUARD: hook pi session-init accepts user prompt text', async () => {
     await expect(
-      runHook(paths, 'pi', 'session-init',
+      runHook(
+        paths,
+        'pi',
+        'session-init',
         {
           sessionId: 'pi-mem-integration-test',
           cwd: process.cwd(),
-          prompt: 'hari ini saya ngapain aja?'  // realistic user prompt
+          prompt: 'hari ini saya ngapain aja?' // realistic user prompt
         },
         { timeoutMs: 30000, logger: log }
       )
@@ -144,11 +158,24 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
     const id = parseInt(idMatch[1]!, 10);
 
     const records = await getObservations({ ids: [id] }, { env, logger: log, timeoutMs: 5000 });
-    expect(Array.isArray(records), 'response.body must be a bare array (NOT wrapped in {content:[...]} like /api/search)').toBe(true);
+    expect(
+      Array.isArray(records),
+      'response.body must be a bare array (NOT wrapped in {content:[...]} like /api/search)'
+    ).toBe(true);
     expect(records.length, 'at least one record returned').toBeGreaterThan(0);
 
     const first = records[0]!;
-    for (const key of ['id', 'memory_session_id', 'project', 'text', 'type', 'created_at', 'created_at_epoch', 'content_hash', 'relevance_count']) {
+    for (const key of [
+      'id',
+      'memory_session_id',
+      'project',
+      'text',
+      'type',
+      'created_at',
+      'created_at_epoch',
+      'content_hash',
+      'relevance_count'
+    ]) {
       expect(first, `record missing field "${key}"`).toHaveProperty(key);
     }
   });
@@ -160,19 +187,13 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
 
   it('DRIFT GUARD: handleGetObservations stringifies bare array with 2-space indent', async () => {
     const state2 = { ...createSessionState({ sessionId: 'pi-mem-integration-test', rootPath: process.cwd() }) };
-    const r = await handleGetObservations(
-      { ids: [99999999] },
-      { state: state2, env, logger: log, timeoutMs: 5000 }
-    );
+    const r = await handleGetObservations({ ids: [99999999] }, { state: state2, env, logger: log, timeoutMs: 5000 });
     expect(r).toBe('[]');
   });
 
   it('DRIFT GUARD: optional orderBy / limit / project accepted by /api/observations/batch', async () => {
     await expect(
-      getObservations(
-        { ids: [1, 2, 3], orderBy: 'date_desc', limit: 2 },
-        { env, logger: log, timeoutMs: 5000 }
-      )
+      getObservations({ ids: [1, 2, 3], orderBy: 'date_desc', limit: 2 }, { env, logger: log, timeoutMs: 5000 })
     ).resolves.not.toThrow();
   });
 
@@ -196,10 +217,7 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
 
   it('DRIFT GUARD: handleTimeline returns non-empty markdown via extractMarkdown', async () => {
     const state2 = { ...createSessionState({ sessionId: 'pi-mem-integration-test', rootPath: process.cwd() }) };
-    const r = await handleTimeline(
-      { query: 'the' },
-      { state: state2, env, logger: log, timeoutMs: 5000 }
-    );
+    const r = await handleTimeline({ query: 'the' }, { state: state2, env, logger: log, timeoutMs: 5000 });
     expect(r).not.toMatch(/empty or malformed/i);
     expect(r.length).toBeGreaterThan(5);
   });
@@ -218,11 +236,17 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
 
   it('multi-turn re-injection regression: ctxMarkdown stays constant', async () => {
     // Spec §4.3: must re-inject every turn with identical content
-    const r1 = await runHook(paths, 'pi', 'context',
+    const r1 = await runHook(
+      paths,
+      'pi',
+      'context',
       { sessionId: 'pi-mem-integration-test', cwd: process.cwd() },
       { timeoutMs: 30000, logger: log }
     );
-    const r2 = await runHook(paths, 'pi', 'context',
+    const r2 = await runHook(
+      paths,
+      'pi',
+      'context',
       { sessionId: 'pi-mem-integration-test', cwd: process.cwd() },
       { timeoutMs: 30000, logger: log }
     );

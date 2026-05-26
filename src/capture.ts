@@ -37,9 +37,11 @@ export function extractTextContent(content: unknown): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .filter((b): b is { type: string; text: string } =>
-        !!b && typeof b === 'object' && (b as any).type === 'text' && typeof (b as any).text === 'string')
-      .map(b => b.text)
+      .filter(
+        (b): b is { type: string; text: string } =>
+          !!b && typeof b === 'object' && (b as any).type === 'text' && typeof (b as any).text === 'string'
+      )
+      .map((b) => b.text)
       .join('\n');
   }
   return '';

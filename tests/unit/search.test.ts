@@ -12,7 +12,9 @@ describe('search', () => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
   });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it('GET /api/search?query=… with correct URL (no limit)', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
@@ -47,20 +49,17 @@ describe('search', () => {
     const err = new TypeError('fetch failed') as any;
     err.cause = { code: 'ECONNREFUSED' };
     fetchMock.mockRejectedValue(err);
-    await expect(search('q', { env, logger: log, timeoutMs: 1000 }))
-      .rejects.toThrow(/worker not reachable/i);
+    await expect(search('q', { env, logger: log, timeoutMs: 1000 })).rejects.toThrow(/worker not reachable/i);
   });
 
   it('throws on non-2xx', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
-    await expect(search('q', { env, logger: log, timeoutMs: 1000 }))
-      .rejects.toThrow(/HTTP 500/);
+    await expect(search('q', { env, logger: log, timeoutMs: 1000 })).rejects.toThrow(/HTTP 500/);
   });
 
   it('throws on timeout (AbortSignal.timeout)', async () => {
     fetchMock.mockRejectedValue(new DOMException('aborted', 'TimeoutError'));
-    await expect(search('q', { env, logger: log, timeoutMs: 10 }))
-      .rejects.toThrow(/aborted|timeout/i);
+    await expect(search('q', { env, logger: log, timeoutMs: 10 })).rejects.toThrow(/aborted|timeout/i);
   });
 });
 
@@ -70,7 +69,9 @@ describe('getObservations', () => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
   });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it('POST /api/observations/batch with ids in JSON body', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
@@ -104,7 +105,10 @@ describe('getObservations', () => {
   });
 
   it('returns parsed bare array on success', async () => {
-    const records = [{ id: 1, text: 'hello' }, { id: 2, text: 'world' }];
+    const records = [
+      { id: 1, text: 'hello' },
+      { id: 2, text: 'world' }
+    ];
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => records });
     const r = await getObservations({ ids: [1, 2] }, { env, logger: log, timeoutMs: 1000 });
     expect(r).toEqual(records);
@@ -128,14 +132,14 @@ describe('getObservations', () => {
     const err = new TypeError('fetch failed') as any;
     err.cause = { code: 'ECONNREFUSED' };
     fetchMock.mockRejectedValue(err);
-    await expect(getObservations({ ids: [1] }, { env, logger: log, timeoutMs: 1000 }))
-      .rejects.toThrow(/worker not reachable/i);
+    await expect(getObservations({ ids: [1] }, { env, logger: log, timeoutMs: 1000 })).rejects.toThrow(
+      /worker not reachable/i
+    );
   });
 
   it('throws on non-2xx', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({}) });
-    await expect(getObservations({ ids: [1] }, { env, logger: log, timeoutMs: 1000 }))
-      .rejects.toThrow(/HTTP 400/);
+    await expect(getObservations({ ids: [1] }, { env, logger: log, timeoutMs: 1000 })).rejects.toThrow(/HTTP 400/);
   });
 });
 
@@ -145,7 +149,9 @@ describe('timeline', () => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
   });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it('GET /api/timeline with anchor (numeric) as query param', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
@@ -209,13 +215,13 @@ describe('timeline', () => {
     const err = new TypeError('fetch failed') as any;
     err.cause = { code: 'ECONNREFUSED' };
     fetchMock.mockRejectedValue(err);
-    await expect(timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 }))
-      .rejects.toThrow(/worker not reachable/i);
+    await expect(timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 })).rejects.toThrow(
+      /worker not reachable/i
+    );
   });
 
   it('throws on non-2xx', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
-    await expect(timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 }))
-      .rejects.toThrow(/HTTP 500/);
+    await expect(timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 })).rejects.toThrow(/HTTP 500/);
   });
 });

@@ -32,12 +32,13 @@ export default async function piMem(pi: any): Promise<void> {
     // Prefer pi's canonical ctx.cwd over Node's process.cwd().
     // Pi sessions may run in a sandboxed working dir distinct from the
     // process cwd; ctx.cwd is the documented extension-facing accessor.
-    const piCwd = (ctx && typeof ctx.cwd === 'string' && ctx.cwd.length > 0)
-      ? ctx.cwd
-      : process.cwd();
+    const piCwd = ctx && typeof ctx.cwd === 'string' && ctx.cwd.length > 0 ? ctx.cwd : process.cwd();
     let rootPath: string;
-    try { rootPath = realpathSync(piCwd); }
-    catch { rootPath = piCwd; }
+    try {
+      rootPath = realpathSync(piCwd);
+    } catch {
+      rootPath = piCwd;
+    }
 
     state = createSessionState({ sessionId, rootPath });
 
@@ -102,9 +103,13 @@ export default async function piMem(pi: any): Promise<void> {
   pi.registerTool({
     name: 'mem_get_observations',
     label: 'Memory observations',
-    description: 'Fetch full observation records by ID from the claude-mem corpus. Pair with mem_search: search returns IDs, then call this to get full title/narrative/facts/files for those IDs.',
+    description:
+      'Fetch full observation records by ID from the claude-mem corpus. Pair with mem_search: search returns IDs, then call this to get full title/narrative/facts/files for those IDs.',
     parameters: MemGetObservationsParams,
-    async execute(_toolCallId: string, params: { ids: number[]; orderBy?: 'date_desc' | 'date_asc'; limit?: number; project?: string }) {
+    async execute(
+      _toolCallId: string,
+      params: { ids: number[]; orderBy?: 'date_desc' | 'date_asc'; limit?: number; project?: string }
+    ) {
       const text = state
         ? await handleGetObservations(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
         : 'Error: pi-mem not initialized (no active session)';
@@ -118,9 +123,19 @@ export default async function piMem(pi: any): Promise<void> {
   pi.registerTool({
     name: 'mem_timeline',
     label: 'Memory timeline',
-    description: 'Get context around an observation: returns the N items before and after an anchor (observation ID, session ID, or ISO timestamp), OR finds the anchor automatically by query. Use as Step 2 between mem_search (Step 1) and mem_get_observations (Step 3) to drill into an interesting period.',
+    description:
+      'Get context around an observation: returns the N items before and after an anchor (observation ID, session ID, or ISO timestamp), OR finds the anchor automatically by query. Use as Step 2 between mem_search (Step 1) and mem_get_observations (Step 3) to drill into an interesting period.',
     parameters: MemTimelineParams,
-    async execute(_toolCallId: string, params: { anchor?: string | number; query?: string; depth_before?: number; depth_after?: number; project?: string }) {
+    async execute(
+      _toolCallId: string,
+      params: {
+        anchor?: string | number;
+        query?: string;
+        depth_before?: number;
+        depth_after?: number;
+        project?: string;
+      }
+    ) {
       const text = state
         ? await handleTimeline(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
         : 'Error: pi-mem not initialized (no active session)';

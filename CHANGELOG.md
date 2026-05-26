@@ -32,7 +32,7 @@ for persistent cross-session memory. Verified compatible with claude-mem 13.x.
     `GET /api/timeline`. Context window around an anchor (observation ID,
     session ID `S<id>`, or ISO timestamp), XOR with `query`.
   - `mem_get_observations({ids, orderBy?, limit?, project?})` — `POST
-    /api/observations/batch`. Full 23-field records by ID. Raw JSON passthrough
+/api/observations/batch`. Full 23-field records by ID. Raw JSON passthrough
     (matches Claude Code MCP `get_observations` 1:1).
 - **Preflight + graceful disable**: file-existence + version checks at
   `session_start`; on failure, `state.enabled = false` and all handlers no-op

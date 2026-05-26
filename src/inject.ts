@@ -19,7 +19,10 @@ interface FetchOpts {
 export async function fetchAndCacheContext(opts: FetchOpts): Promise<void> {
   const { state, paths, ui, logger, timeoutMs } = opts;
   try {
-    const res = await runHook(paths, 'pi', 'context',
+    const res = await runHook(
+      paths,
+      'pi',
+      'context',
       { sessionId: state.sessionId, cwd: state.rootPath },
       { timeoutMs, logger }
     );
@@ -28,8 +31,11 @@ export async function fetchAndCacheContext(opts: FetchOpts): Promise<void> {
       if (!ui?.notify) {
         logger.debug('ctx.ui.notify unavailable (likely non-interactive session); skipping TUI banner');
       } else {
-        try { ui.notify(res.systemMessage, 'info'); }
-        catch (err) { logger.warn(`ui.notify failed: ${(err as Error).message}`); }
+        try {
+          ui.notify(res.systemMessage, 'info');
+        } catch (err) {
+          logger.warn(`ui.notify failed: ${(err as Error).message}`);
+        }
       }
     }
   } catch (err) {

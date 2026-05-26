@@ -30,11 +30,13 @@ A pi extension package that bridges pi sessions to an existing `claude-mem` inst
 ## 2. Goals & Non-Goals
 
 ### Goals
+
 - Mirror Claude Code's memory UX in pi: auto-inject context at session start (with TUI banner), capture user prompts and tool results, expose memory search to the agent.
 - Self-contained npm package — zero runtime deps, no upstream PR required, no separate server to run.
 - Use the **same** claude-mem corpus as Claude Code so observations are shared across hosts when working in the same folder.
 
 ### Non-Goals
+
 - Replacing or proxying claude-mem's storage. pi-mem owns no SQLite/Postgres state.
 - Adding new memory features (better search, semantic ranking, etc.) — pi-mem is a transport, not a memory engine.
 - Supporting claude-mem `server-beta` mode (postgres + team API keys). pi-mem targets local single-user mode only.
@@ -155,10 +157,10 @@ LLM calls mem_timeline({anchor? | query?, depth_before?, depth_after?, project?}
 
 ```ts
 type SessionState = {
-  enabled:      boolean;   // false after preflight failure → all handlers no-op
-  sessionId:    string;    // externalized id derived from pi session id
-  rootPath:     string;    // realpath(ctx.cwd) — pi's canonical session cwd
-  ctxMarkdown:  string;    // cached additionalContext; empty string = no inject
+  enabled: boolean; // false after preflight failure → all handlers no-op
+  sessionId: string; // externalized id derived from pi session id
+  rootPath: string; // realpath(ctx.cwd) — pi's canonical session cwd
+  ctxMarkdown: string; // cached additionalContext; empty string = no inject
 };
 ```
 
@@ -192,44 +194,44 @@ stdin payload is closed immediately; stdout is not read for capture events.
 
 Four checks run in order. Any failure → `logger.error(msg)` + `state.enabled = false` + skip subsequent checks. All later handlers (inject, capture, tool) become no-ops. The pi session continues normally without memory.
 
-| Check | Failure | User-facing message |
-|---|---|---|
-| `paths.resolveWorker()` | `worker-service.cjs` not found in any candidate | `pi-mem: claude-mem not installed. Run \`npx claude-mem install\` first.` |
-| `paths.resolveBunRunner()` | `bun-runner.js` not in same dir | `pi-mem: claude-mem install is incomplete (bun-runner.js missing). Reinstall.` |
-| `worker.runStart()` exit ≠ 0 within 60s | Worker failed to start | `pi-mem: claude-mem worker failed to start: <stderr tail>` |
-| Version sanity: read `<workerDir>/../package.json` (the plugin directory's `package.json`), require `version` major === 13 | Mismatch | `pi-mem: claude-mem <version> not supported (need 13.x). Memory disabled.` |
+| Check                                                                                                                      | Failure                                         | User-facing message                                                            |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| `paths.resolveWorker()`                                                                                                    | `worker-service.cjs` not found in any candidate | `pi-mem: claude-mem not installed. Run \`npx claude-mem install\` first.`      |
+| `paths.resolveBunRunner()`                                                                                                 | `bun-runner.js` not in same dir                 | `pi-mem: claude-mem install is incomplete (bun-runner.js missing). Reinstall.` |
+| `worker.runStart()` exit ≠ 0 within 60s                                                                                    | Worker failed to start                          | `pi-mem: claude-mem worker failed to start: <stderr tail>`                     |
+| Version sanity: read `<workerDir>/../package.json` (the plugin directory's `package.json`), require `version` major === 13 | Mismatch                                        | `pi-mem: claude-mem <version> not supported (need 13.x). Memory disabled.`     |
 
 ### 5.2 Inject — SKIP WITH WARNING
 
-| Condition | Action |
-|---|---|
-| `state.enabled === false` | Silent no-op (preflight already logged) |
-| `worker.runHook('context')` non-zero exit, timeout, or non-JSON stdout | `state.ctxMarkdown = ''`, log warn "context fetch failed: <err>" |
-| Response has `systemMessage` field | `ctx.ui.notify(systemMessage, "info")` |
-| Response lacks `hookSpecificOutput.additionalContext` | `state.ctxMarkdown = ''`, no inject, no error (treated as "no memory yet") |
-| `before_agent_start` and `state.ctxMarkdown === ''` | Return event unchanged (no wrapper, no inject) |
+| Condition                                                              | Action                                                                     |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `state.enabled === false`                                              | Silent no-op (preflight already logged)                                    |
+| `worker.runHook('context')` non-zero exit, timeout, or non-JSON stdout | `state.ctxMarkdown = ''`, log warn "context fetch failed: <err>"           |
+| Response has `systemMessage` field                                     | `ctx.ui.notify(systemMessage, "info")`                                     |
+| Response lacks `hookSpecificOutput.additionalContext`                  | `state.ctxMarkdown = ''`, no inject, no error (treated as "no memory yet") |
+| `before_agent_start` and `state.ctxMarkdown === ''`                    | Return event unchanged (no wrapper, no inject)                             |
 
 ### 5.3 Capture — FIRE-AND-FORGET, DROP ON FAILURE
 
-| Condition | Action |
-|---|---|
-| `state.enabled === false` OR `config.capture === false` | No-op |
-| Subprocess spawn error (`ENOENT` etc.) | `logger.warn("capture spawn failed: <err>")`, drop event |
-| Subprocess exits non-zero | `logger.warn("hook <cmd> exited <code>")`, drop event |
-| Subprocess exceeds `PI_MEM_SPAWN_TIMEOUT_MS` | Force-kill, `logger.warn("hook <cmd> timed out")`, drop event |
+| Condition                                               | Action                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------- |
+| `state.enabled === false` OR `config.capture === false` | No-op                                                         |
+| Subprocess spawn error (`ENOENT` etc.)                  | `logger.warn("capture spawn failed: <err>")`, drop event      |
+| Subprocess exits non-zero                               | `logger.warn("hook <cmd> exited <code>")`, drop event         |
+| Subprocess exceeds `PI_MEM_SPAWN_TIMEOUT_MS`            | Force-kill, `logger.warn("hook <cmd> timed out")`, drop event |
 
 No retry, no queue, no in-memory buffer. Lost events are acceptable — the corpus is enriched primarily from Claude Code sessions on the same folder; pi capture is supplementary.
 
 ### 5.4 `mem_search` tool — RETURN ERROR TO LLM
 
-| Condition | Action |
-|---|---|
-| `state.enabled === false` | Return `"Error: pi-mem disabled (preflight failed)"` to LLM |
-| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."` |
-| HTTP non-2xx | Return `"Error: search failed (HTTP <status>)"` |
-| Empty result | claude-mem itself returns text like `Found 0 result(s) matching "<query>" (0 obs, 0 sessions, 0 prompts)` — pass through verbatim |
-| Malformed response (no text block) | Return `"Error: claude-mem returned an empty or malformed search response"` |
-| Success | Pass through `res.content[0].text` verbatim — claude-mem pre-formats markdown |
+| Condition                                | Action                                                                                                                            |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `state.enabled === false`                | Return `"Error: pi-mem disabled (preflight failed)"` to LLM                                                                       |
+| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."`                                                  |
+| HTTP non-2xx                             | Return `"Error: search failed (HTTP <status>)"`                                                                                   |
+| Empty result                             | claude-mem itself returns text like `Found 0 result(s) matching "<query>" (0 obs, 0 sessions, 0 prompts)` — pass through verbatim |
+| Malformed response (no text block)       | Return `"Error: claude-mem returned an empty or malformed search response"`                                                       |
+| Success                                  | Pass through `res.content[0].text` verbatim — claude-mem pre-formats markdown                                                     |
 
 **Output format note:** claude-mem's `/api/search` returns MCP content-block shape `{ content: [{ type: 'text', text: '<markdown>' }] }` with the markdown already formatted (categorized by date, file, and observation/session/prompt counts). pi-mem does NOT build its own markdown — `extractMarkdown(res)` picks the first `type === 'text'` block and the result goes to the LLM unchanged. This keeps formatting consistent with what Claude Code users see and makes pi-mem resilient to claude-mem rendering tweaks.
 
@@ -238,22 +240,24 @@ No retry, no queue, no in-memory buffer. Lost events are acceptable — the corp
 ### 5.5 Secret hygiene
 
 The only "secret" surface is whatever lives in `~/.claude-mem/settings.json` — pi-mem only reads `CLAUDE_MEM_WORKER_PORT` from it, never an API key (local mode has no API key). Still:
+
 - `logger.ts` redacts `Bearer\s+\S+` patterns from any value passed (defensive).
 - Settings file is read once at startup, port value retained in closure scope.
 
 ### 5.6 `mem_get_observations` tool — RETURN ERROR TO LLM
 
-| Condition | Action |
-|---|---|
-| `state.enabled === false` | Return `"Error: pi-mem disabled (preflight failed)"` to LLM |
-| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."` |
-| HTTP non-2xx | Return `"Error: get_observations HTTP <status>"` (shape: `Error: <thrown.message>`; thrown from `getObservations` as `get_observations HTTP N`) |
-| Empty `ids` array | claude-mem returns `[]`; pi-mem passes through as `"[]"` (JSON-stringified). No HTTP call optimization at MVP — let claude-mem decide. |
-| Success | Pass through `JSON.stringify(response, null, 2)` — claude-mem returns a bare array of observation records |
+| Condition                                | Action                                                                                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state.enabled === false`                | Return `"Error: pi-mem disabled (preflight failed)"` to LLM                                                                                     |
+| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."`                                                                |
+| HTTP non-2xx                             | Return `"Error: get_observations HTTP <status>"` (shape: `Error: <thrown.message>`; thrown from `getObservations` as `get_observations HTTP N`) |
+| Empty `ids` array                        | claude-mem returns `[]`; pi-mem passes through as `"[]"` (JSON-stringified). No HTTP call optimization at MVP — let claude-mem decide.          |
+| Success                                  | Pass through `JSON.stringify(response, null, 2)` — claude-mem returns a bare array of observation records                                       |
 
 **Output format note:** Unlike `/api/search` which returns pre-formatted markdown in an MCP content-block, `/api/observations/batch` returns a bare JSON array of observation records (each with 23 fields: `id`, `memory_session_id`, `project`, `text`, `type`, `title`, `subtitle`, `facts`, `narrative`, `concepts`, `files_read`, `files_modified`, `prompt_number`, `discovery_tokens`, `created_at`, `created_at_epoch`, `content_hash`, `generated_by_model`, `relevance_count`, `merged_into_project`, `agent_type`, `agent_id`, `metadata`). pi-mem stringifies the response with 2-space indentation — matching claude-mem's own MCP `get_observations` tool which uses `JSON.stringify(data, null, 2)` (see `claude-mem/src/servers/mcp-server.ts:111-136`). No local formatting; the LLM consumes raw JSON.
 
 **Parameter contract** (matches `observationsBatchSchema` in claude-mem's `DataRoutes.ts:49`):
+
 - `ids`: `number[]` (required) — observation IDs to fetch. Non-existent IDs silently dropped.
 - `orderBy`: `'date_desc' | 'date_asc'` (optional)
 - `limit`: positive integer (optional) — post-filter cap on returned records
@@ -263,21 +267,22 @@ The only "secret" surface is whatever lives in `~/.claude-mem/settings.json` —
 
 ### 5.7 `mem_timeline` tool — RETURN ERROR TO LLM
 
-| Condition | Action |
-|---|---|
-| `state.enabled === false` | Return `"Error: pi-mem disabled (preflight failed)"` to LLM |
-| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."` |
-| HTTP non-2xx | Return `"Error: timeline HTTP <status>"` (shape: `Error: <thrown.message>`) |
-| Neither `anchor` nor `query` provided | claude-mem returns content-block with `"Error: Must provide either \"anchor\" or \"query\" parameter"` and `isError: true`; pi-mem passes through verbatim |
-| Both `anchor` and `query` provided | claude-mem returns content-block with `"Error: Cannot provide both \"anchor\" and \"query\" parameters. Use one or the other."`; pi-mem passes through |
-| Anchor ID not found | claude-mem returns `"Observation #<N> not found"` or `"Session #<N> not found"`; passes through |
-| Empty result | claude-mem returns `"No observations found matching \"<query>\". Try a different search query."`; passes through |
-| Malformed response (no text block) | Return `"Error: claude-mem returned an empty or malformed search response"` (same as `mem_search` — reuses `extractMarkdown`) |
-| Success | Pass through `res.content[0].text` verbatim — claude-mem pre-formats markdown |
+| Condition                                | Action                                                                                                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state.enabled === false`                | Return `"Error: pi-mem disabled (preflight failed)"` to LLM                                                                                                |
+| HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."`                                                                           |
+| HTTP non-2xx                             | Return `"Error: timeline HTTP <status>"` (shape: `Error: <thrown.message>`)                                                                                |
+| Neither `anchor` nor `query` provided    | claude-mem returns content-block with `"Error: Must provide either \"anchor\" or \"query\" parameter"` and `isError: true`; pi-mem passes through verbatim |
+| Both `anchor` and `query` provided       | claude-mem returns content-block with `"Error: Cannot provide both \"anchor\" and \"query\" parameters. Use one or the other."`; pi-mem passes through     |
+| Anchor ID not found                      | claude-mem returns `"Observation #<N> not found"` or `"Session #<N> not found"`; passes through                                                            |
+| Empty result                             | claude-mem returns `"No observations found matching \"<query>\". Try a different search query."`; passes through                                           |
+| Malformed response (no text block)       | Return `"Error: claude-mem returned an empty or malformed search response"` (same as `mem_search` — reuses `extractMarkdown`)                              |
+| Success                                  | Pass through `res.content[0].text` verbatim — claude-mem pre-formats markdown                                                                              |
 
 **Output format note:** `/api/timeline` returns the **same MCP content-block shape** as `/api/search` (`{ content: [{ type: 'text', text: '<markdown>' }] }`) — claude-mem `SearchManager.timeline()` wraps both success and error responses in this envelope. pi-mem reuses `extractMarkdown(res)` from §5.4. Errors from claude-mem (XOR violations, anchor-not-found) come back as `isError: true` content-blocks; pi-mem does **not** distinguish these from success — the markdown text already explains the error to the LLM.
 
 **Parameter contract** (matches `SearchManager.timeline()` in `claude-mem/src/services/worker/SearchManager.ts:424`):
+
 - `anchor`: `string | number` (XOR with `query`) — observation ID (number), session ID (`S<id>`), or ISO timestamp
 - `query`: `string` (XOR with `anchor`) — full-text query; claude-mem finds the top match and uses it as anchor
 - `depth_before`: positive integer (optional, default 10 at claude-mem side)
@@ -290,25 +295,25 @@ The only "secret" surface is whatever lives in `~/.claude-mem/settings.json` —
 
 ### 6.1 pi-mem env vars (genuinely pi-specific)
 
-| Env Var | Default | Notes |
-|---|---|---|
-| `PI_MEM_ENABLED` | `true` | Master kill switch. `false` skips preflight entirely; all handlers no-op. |
-| `PI_MEM_CAPTURE` | `true` | Disable capture (`message_end` / `tool_result` / `agent_end`) while keeping inject + search. |
-| `PI_MEM_SPAWN_TIMEOUT_MS` | `30000` | Per-subprocess timeout for capture spawns and preflight start. |
-| `PI_MEM_LOG_LEVEL` | `warn` | `silent` / `error` / `warn` / `info` / `debug`. pi-mem's own logger verbosity. |
+| Env Var                   | Default | Notes                                                                                        |
+| ------------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `PI_MEM_ENABLED`          | `true`  | Master kill switch. `false` skips preflight entirely; all handlers no-op.                    |
+| `PI_MEM_CAPTURE`          | `true`  | Disable capture (`message_end` / `tool_result` / `agent_end`) while keeping inject + search. |
+| `PI_MEM_SPAWN_TIMEOUT_MS` | `30000` | Per-subprocess timeout for capture spawns and preflight start.                               |
+| `PI_MEM_LOG_LEVEL`        | `warn`  | `silent` / `error` / `warn` / `info` / `debug`. pi-mem's own logger verbosity.               |
 
 Invalid values → log error + fall back to default. Never crash extension load.
 
 ### 6.2 Inherited from claude-mem (transparent, no pi-mem env var introduced)
 
-| Env Var | Source | pi-mem behavior |
-|---|---|---|
-| `CLAUDE_CONFIG_DIR` | claude-mem & Claude Code convention | Root for path discovery. Default `$HOME/.claude`. |
-| `CLAUDE_MEM_WORKER_PORT` | claude-mem | Read for `/api/search`. Default `37700 + (uid % 100)`. |
-| `CLAUDE_MEM_WORKER_HOST` | claude-mem | Read for `/api/search`. Default `127.0.0.1`. |
-| `CLAUDE_PLUGIN_ROOT` | Claude Code (when applicable) | Higher-priority path candidate. |
-| `CLAUDE_MEM_DATA_DIR` | claude-mem | Not read by pi-mem directly; respected transparently by subprocess. |
-| `CLAUDE_MEM_CONTEXT_SHOW_TERMINAL_OUTPUT` | claude-mem | Controls whether claude-mem returns `systemMessage`. pi-mem honors what claude-mem returns — no separate display toggle. |
+| Env Var                                   | Source                              | pi-mem behavior                                                                                                          |
+| ----------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `CLAUDE_CONFIG_DIR`                       | claude-mem & Claude Code convention | Root for path discovery. Default `$HOME/.claude`.                                                                        |
+| `CLAUDE_MEM_WORKER_PORT`                  | claude-mem                          | Read for `/api/search`. Default `37700 + (uid % 100)`.                                                                   |
+| `CLAUDE_MEM_WORKER_HOST`                  | claude-mem                          | Read for `/api/search`. Default `127.0.0.1`.                                                                             |
+| `CLAUDE_PLUGIN_ROOT`                      | Claude Code (when applicable)       | Higher-priority path candidate.                                                                                          |
+| `CLAUDE_MEM_DATA_DIR`                     | claude-mem                          | Not read by pi-mem directly; respected transparently by subprocess.                                                      |
+| `CLAUDE_MEM_CONTEXT_SHOW_TERMINAL_OUTPUT` | claude-mem                          | Controls whether claude-mem returns `systemMessage`. pi-mem honors what claude-mem returns — no separate display toggle. |
 
 ### 6.3 Worker path discovery
 
@@ -342,18 +347,18 @@ In order, first hit wins:
 
 ### 7.2 Unit tests (mock `child_process` and `fetch`)
 
-| Module | Asserts |
-|---|---|
-| `paths.ts` | Resolution order, missing-file fallback, `$CLAUDE_PLUGIN_ROOT` precedence |
-| `port.ts` | env > settings.json (flat & nested) > default; uid-based default |
-| `worker.ts` | spawn args correct, `.unref()` called for fire-and-forget, stdin closed, timeout enforced |
-| `search.ts` | URL construction, port resolution, ECONNREFUSED → user-friendly error |
-| `inject.ts` | First-turn fetch caches, every `before_agent_start` re-injects, empty ctxMarkdown skips, `systemMessage` triggers `ctx.ui.notify` |
-| `capture.ts` | Fire-and-forget (no await on stdout), event payloads match spec, `state.enabled === false` no-op, `config.capture === false` no-op |
-| `tool.ts` | Schema validation, formatted markdown output, error paths return strings to LLM |
-| `config.ts` | Defaults, invalid → log+default, boolean parsing |
-| `preflight.ts` | Each failure → `state.enabled = false` + correct error message |
-| `logger.ts` | Bearer-pattern redaction |
+| Module         | Asserts                                                                                                                            |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `paths.ts`     | Resolution order, missing-file fallback, `$CLAUDE_PLUGIN_ROOT` precedence                                                          |
+| `port.ts`      | env > settings.json (flat & nested) > default; uid-based default                                                                   |
+| `worker.ts`    | spawn args correct, `.unref()` called for fire-and-forget, stdin closed, timeout enforced                                          |
+| `search.ts`    | URL construction, port resolution, ECONNREFUSED → user-friendly error                                                              |
+| `inject.ts`    | First-turn fetch caches, every `before_agent_start` re-injects, empty ctxMarkdown skips, `systemMessage` triggers `ctx.ui.notify`  |
+| `capture.ts`   | Fire-and-forget (no await on stdout), event payloads match spec, `state.enabled === false` no-op, `config.capture === false` no-op |
+| `tool.ts`      | Schema validation, formatted markdown output, error paths return strings to LLM                                                    |
+| `config.ts`    | Defaults, invalid → log+default, boolean parsing                                                                                   |
+| `preflight.ts` | Each failure → `state.enabled = false` + correct error message                                                                     |
+| `logger.ts`    | Bearer-pattern redaction                                                                                                           |
 
 ### 7.3 Multi-turn `before_agent_start` test (CRITICAL)
 
@@ -425,13 +430,14 @@ Not blockers for MVP. Documented for the next iteration.
 
 Code snippets in this spec were corrected post-execution on 2026-05-26 to match what actually shipped. The corrections came from running `pi install` against a live claude-mem worker and discovering contract drift between assumed and actual behavior.
 
-| Date | Commit | Section(s) | What changed |
-|---|---|---|---|
-| 2026-05-26 | `7bd6feb` | §3.2, §8 | `pi.registerTool` is single-arg with `name`/`label`/TypeBox `parameters`/`execute()` (return `{content, details}`). TypeBox restored to peerDeps. |
-| 2026-05-26 | `b4f5ac9` | §4.1, §5.4 | `/api/search` returns MCP content-block `{ content: [{type,text}] }`, not `{ results: [...] }`. pi-mem passes through claude-mem's pre-formatted markdown via `extractMarkdown(res.content)`. `limit` forwarded as `?limit=N`. |
-| 2026-05-26 | `c9e88bd` | (none in spec; see plan T12) | `extractTextContent` helper for pi 0.74+ content-block message arrays. |
-| 2026-05-26 | `6f5aa02` | §4.2 | `state.rootPath` derived from `ctx.cwd` (pi-canonical) with `process.cwd()` fallback. |
-| 2026-05-26 | `e05dc97` | §4.4 | `setTimeout` for capture force-kill also `.unref()`'d alongside `child.unref()` so pi can exit cleanly. |
-| 2026-05-26 | `dc903d6..bb7d08f` | §3.1, §4.1, §5.6, §9 | Promoted `mem_get_observations` from §9 future work to active spec scope. Adds `/api/observations/batch` POST wrapper to `src/search.ts`, `mem_get_observations` registerTool definition in `src/tool.ts`/`src/index.ts`, and §5.6 error matrix mirroring §5.4. Output is `JSON.stringify(records, null, 2)` passthrough (matches Claude Code MCP `get_observations`). |
-| 2026-05-26 | (pending) | §3.1, §4.1, §5.7, §9 | Adds `mem_timeline` tool wrapping `/api/timeline` GET endpoint. Completes the claude-mem 3-layer workflow (search → timeline → get_observations). Same MCP content-block response shape as `/api/search`; reuses `extractMarkdown`. XOR `anchor`/`query` validation owned by claude-mem (single boundary). §5.7 error matrix added. |
+| Date       | Commit             | Section(s)                   | What changed                                                                                                                                                                                                                                                                                                                                                           |
+| ---------- | ------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-26 | `7bd6feb`          | §3.2, §8                     | `pi.registerTool` is single-arg with `name`/`label`/TypeBox `parameters`/`execute()` (return `{content, details}`). TypeBox restored to peerDeps.                                                                                                                                                                                                                      |
+| 2026-05-26 | `b4f5ac9`          | §4.1, §5.4                   | `/api/search` returns MCP content-block `{ content: [{type,text}] }`, not `{ results: [...] }`. pi-mem passes through claude-mem's pre-formatted markdown via `extractMarkdown(res.content)`. `limit` forwarded as `?limit=N`.                                                                                                                                         |
+| 2026-05-26 | `c9e88bd`          | (none in spec; see plan T12) | `extractTextContent` helper for pi 0.74+ content-block message arrays.                                                                                                                                                                                                                                                                                                 |
+| 2026-05-26 | `6f5aa02`          | §4.2                         | `state.rootPath` derived from `ctx.cwd` (pi-canonical) with `process.cwd()` fallback.                                                                                                                                                                                                                                                                                  |
+| 2026-05-26 | `e05dc97`          | §4.4                         | `setTimeout` for capture force-kill also `.unref()`'d alongside `child.unref()` so pi can exit cleanly.                                                                                                                                                                                                                                                                |
+| 2026-05-26 | `dc903d6..bb7d08f` | §3.1, §4.1, §5.6, §9         | Promoted `mem_get_observations` from §9 future work to active spec scope. Adds `/api/observations/batch` POST wrapper to `src/search.ts`, `mem_get_observations` registerTool definition in `src/tool.ts`/`src/index.ts`, and §5.6 error matrix mirroring §5.4. Output is `JSON.stringify(records, null, 2)` passthrough (matches Claude Code MCP `get_observations`). |
+| 2026-05-26 | (pending)          | §3.1, §4.1, §5.7, §9         | Adds `mem_timeline` tool wrapping `/api/timeline` GET endpoint. Completes the claude-mem 3-layer workflow (search → timeline → get_observations). Same MCP content-block response shape as `/api/search`; reuses `extractMarkdown`. XOR `anchor`/`query` validation owned by claude-mem (single boundary). §5.7 error matrix added.                                    |
+
 - **TUI widget for inject status.** Instead of one-shot `ctx.ui.notify`, use `ctx.ui.setStatus('pi-mem', '✓ memory loaded (N obs)')` for sustained footer indication.

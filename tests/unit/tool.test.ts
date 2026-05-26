@@ -35,12 +35,16 @@ describe('mem_search tool', () => {
   });
 
   it('returns error string when state.enabled=false', async () => {
-    const r = await handleSearch({ query: 'x' }, { state: { ...state, enabled: false }, env, logger: log, timeoutMs: 1000 });
+    const r = await handleSearch(
+      { query: 'x' },
+      { state: { ...state, enabled: false }, env, logger: log, timeoutMs: 1000 }
+    );
     expect(r).toMatch(/disabled/);
   });
 
   it('passes through claude-mem pre-formatted markdown on success', async () => {
-    const markdown = 'Found 3 result(s) matching "auth"\n\n### May 20\n\n**file.ts**\n| ID | Title |\n|----|-------|\n| #1 | A thing |';
+    const markdown =
+      'Found 3 result(s) matching "auth"\n\n### May 20\n\n**file.ts**\n| ID | Title |\n|----|-------|\n| #1 | A thing |';
     (search as any).mockResolvedValue({ content: [{ type: 'text', text: markdown }] });
     const r = await handleSearch({ query: 'auth' }, { state, env, logger: log, timeoutMs: 1000 });
     expect(r).toBe(markdown);
@@ -74,10 +78,7 @@ describe('mem_search tool', () => {
   });
 
   it('extractMarkdown picks the first text-type block (ignores non-text)', () => {
-    const res = { content: [
-      { type: 'image', text: 'skip' } as any,
-      { type: 'text', text: 'the answer' }
-    ]};
+    const res = { content: [{ type: 'image', text: 'skip' } as any, { type: 'text', text: 'the answer' }] };
     expect(extractMarkdown(res)).toBe('the answer');
   });
 });
@@ -107,7 +108,10 @@ describe('mem_get_observations tool', () => {
   });
 
   it('returns JSON.stringify(records, null, 2) on success', async () => {
-    const records = [{ id: 1, title: 'A' }, { id: 2, title: 'B' }];
+    const records = [
+      { id: 1, title: 'A' },
+      { id: 2, title: 'B' }
+    ];
     (getObservations as any).mockResolvedValue(records);
     const r = await handleGetObservations({ ids: [1, 2] }, { state, env, logger: log, timeoutMs: 1000 });
     expect(r).toBe(JSON.stringify(records, null, 2));

@@ -34,22 +34,22 @@ Restart pi. The extension auto-loads.
 
 Pi-mem-specific env vars (genuinely pi-specific):
 
-| Env Var | Default | Notes |
-|---|---|---|
-| `PI_MEM_ENABLED` | `true` | Master kill switch |
-| `PI_MEM_CAPTURE` | `true` | Disable capture, keep inject + search |
-| `PI_MEM_SPAWN_TIMEOUT_MS` | `30000` | Per-subprocess timeout |
-| `PI_MEM_LOG_LEVEL` | `warn` | `silent` / `error` / `warn` / `info` / `debug` |
+| Env Var                   | Default | Notes                                          |
+| ------------------------- | ------- | ---------------------------------------------- |
+| `PI_MEM_ENABLED`          | `true`  | Master kill switch                             |
+| `PI_MEM_CAPTURE`          | `true`  | Disable capture, keep inject + search          |
+| `PI_MEM_SPAWN_TIMEOUT_MS` | `30000` | Per-subprocess timeout                         |
+| `PI_MEM_LOG_LEVEL`        | `warn`  | `silent` / `error` / `warn` / `info` / `debug` |
 
 Inherited from claude-mem (transparent — no pi-mem env var introduced):
 
-| Env Var | Purpose |
-|---|---|
-| `CLAUDE_CONFIG_DIR` | Root for worker path discovery (default `$HOME/.claude`) |
-| `CLAUDE_MEM_WORKER_PORT` | Worker HTTP port (default `37700 + (uid % 100)`) |
-| `CLAUDE_MEM_WORKER_HOST` | Worker host (default `127.0.0.1`) |
-| `CLAUDE_PLUGIN_ROOT` | Claude Code-injected plugin path |
-| `CLAUDE_MEM_DATA_DIR` | claude-mem data dir |
+| Env Var                                   | Purpose                                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `CLAUDE_CONFIG_DIR`                       | Root for worker path discovery (default `$HOME/.claude`)                                           |
+| `CLAUDE_MEM_WORKER_PORT`                  | Worker HTTP port (default `37700 + (uid % 100)`)                                                   |
+| `CLAUDE_MEM_WORKER_HOST`                  | Worker host (default `127.0.0.1`)                                                                  |
+| `CLAUDE_PLUGIN_ROOT`                      | Claude Code-injected plugin path                                                                   |
+| `CLAUDE_MEM_DATA_DIR`                     | claude-mem data dir                                                                                |
 | `CLAUDE_MEM_CONTEXT_SHOW_TERMINAL_OUTPUT` | Controls whether the TUI banner appears (set to `true` in `~/.claude-mem/settings.json` to enable) |
 
 ## Troubleshooting

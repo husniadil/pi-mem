@@ -11,6 +11,7 @@ Pi extension that bridges pi (agent runtime) to claude-mem (persistent memory). 
 Currently verified compatible with claude-mem 13.x. README + integration drift guards are the only place we encode this — if a future claude-mem version breaks contracts, the drift guards fail first.
 
 **Canonical docs:**
+
 - Design spec: `docs/superpowers/specs/2026-05-26-pi-mem-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-05-26-pi-mem.md`
 - README: `README.md` (user-facing)
@@ -64,6 +65,7 @@ Each task in the plan = one commit. Within a task:
 7. Commit with conventional message
 
 Mock conventions:
+
 - `vi.mock('node:fs', { spy: true })` for fs interactions (vitest 3.x ESM workaround)
 - `vi.mock('../../src/search.ts', () => ({ search: vi.fn(), getObservations: vi.fn(), timeline: vi.fn() }))` — list ALL exports in the factory; vi.mock is hoisted so you can't re-mock same path
 - Mock factories live at top of test file, before imports of mocked module
@@ -77,6 +79,7 @@ Call `advisor()` at these moments:
 - **When stuck** — recurring errors, unclear root cause, considering changing approach
 
 The advisor sees your full transcript. They've already caught:
+
 - Regex bugs that would have flaked integration tests (`/#?(\d+)/` matching header counts instead of IDs)
 - Spec/impl mismatches (error string format drift)
 - Coverage gaps (empty-array input not tested)
@@ -142,6 +145,7 @@ The `state.enabled === false` early return is non-negotiable — disabled means 
 ### HTTP client shape (in `src/search.ts`)
 
 Pattern for new endpoint:
+
 - Resolve host/port from env via `resolveHost` / `resolvePort`
 - Build URL or POST body, **omitting undefined / empty / non-positive optional params**
 - Wrap in `try/catch`, convert `ECONNREFUSED` → friendly error
@@ -208,17 +212,17 @@ From spec §9 — don't preemptively implement; revisit only on concrete user pa
 
 ## Quick reference: where things live
 
-| Concern | File |
-|---|---|
-| Session state shape | `src/session.ts` |
-| Per-event handlers | `src/index.ts` (`pi.on('session_start' \| 'before_agent_start' \| ...)` ) |
-| Context inject | `src/inject.ts` (`fetchAndCacheContext`, `injectIntoSystemPrompt`) |
-| Capture handlers | `src/capture.ts` |
-| HTTP clients | `src/search.ts` (search, getObservations, timeline) |
-| Tool handlers + schemas | `src/tool.ts` (handle*, Mem*Params) |
-| Subprocess hook invoker | `src/worker.ts` (`runHookFireAndForget`, `runHook`) |
-| Worker path discovery | `src/paths.ts` |
-| Worker port discovery | `src/port.ts` |
-| Preflight | `src/preflight.ts` |
-| Config / env parsing | `src/config.ts` |
-| Logger | `src/logger.ts` (with `Bearer\s+\S+` redaction) |
+| Concern                 | File                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
+| Session state shape     | `src/session.ts`                                                          |
+| Per-event handlers      | `src/index.ts` (`pi.on('session_start' \| 'before_agent_start' \| ...)` ) |
+| Context inject          | `src/inject.ts` (`fetchAndCacheContext`, `injectIntoSystemPrompt`)        |
+| Capture handlers        | `src/capture.ts`                                                          |
+| HTTP clients            | `src/search.ts` (search, getObservations, timeline)                       |
+| Tool handlers + schemas | `src/tool.ts` (handle*, Mem*Params)                                       |
+| Subprocess hook invoker | `src/worker.ts` (`runHookFireAndForget`, `runHook`)                       |
+| Worker path discovery   | `src/paths.ts`                                                            |
+| Worker port discovery   | `src/port.ts`                                                             |
+| Preflight               | `src/preflight.ts`                                                        |
+| Config / env parsing    | `src/config.ts`                                                           |
+| Logger                  | `src/logger.ts` (with `Bearer\s+\S+` redaction)                           |

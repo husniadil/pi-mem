@@ -18,7 +18,10 @@ describe('logger', () => {
 
   it('silent suppresses all', () => {
     const log = createLogger('silent');
-    log.error('e'); log.warn('w'); log.info('i'); log.debug('d');
+    log.error('e');
+    log.warn('w');
+    log.info('i');
+    log.debug('d');
     expect(consoleSpy).not.toHaveBeenCalled();
   });
 

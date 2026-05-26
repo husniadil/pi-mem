@@ -11,7 +11,7 @@ function readSettingsField(env: NodeJS.ProcessEnv, key: string): string | undefi
   if (!existsSync(path)) return undefined;
   try {
     const raw = JSON.parse(readFileSync(path, 'utf-8'));
-    const root = (raw && typeof raw === 'object') ? raw : {};
+    const root = raw && typeof raw === 'object' ? raw : {};
     const env_ = root.env && typeof root.env === 'object' ? root.env : root;
     const v = env_[key];
     return typeof v === 'string' ? v : undefined;
@@ -26,13 +26,9 @@ function defaultPort(): string {
 }
 
 export function resolvePort(env: NodeJS.ProcessEnv): string {
-  return env.CLAUDE_MEM_WORKER_PORT
-    ?? readSettingsField(env, 'CLAUDE_MEM_WORKER_PORT')
-    ?? defaultPort();
+  return env.CLAUDE_MEM_WORKER_PORT ?? readSettingsField(env, 'CLAUDE_MEM_WORKER_PORT') ?? defaultPort();
 }
 
 export function resolveHost(env: NodeJS.ProcessEnv): string {
-  return env.CLAUDE_MEM_WORKER_HOST
-    ?? readSettingsField(env, 'CLAUDE_MEM_WORKER_HOST')
-    ?? '127.0.0.1';
+  return env.CLAUDE_MEM_WORKER_HOST ?? readSettingsField(env, 'CLAUDE_MEM_WORKER_HOST') ?? '127.0.0.1';
 }

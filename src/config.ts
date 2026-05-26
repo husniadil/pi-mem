@@ -23,9 +23,9 @@ function parseLogLevel(v: string | undefined, dflt: LogLevel): LogLevel {
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
   return {
-    enabled:        parseBool(env.PI_MEM_ENABLED, true),
-    capture:        parseBool(env.PI_MEM_CAPTURE, true),
+    enabled: parseBool(env.PI_MEM_ENABLED, true),
+    capture: parseBool(env.PI_MEM_CAPTURE, true),
     spawnTimeoutMs: parsePositiveInt(env.PI_MEM_SPAWN_TIMEOUT_MS, 30000),
-    logLevel:       parseLogLevel(env.PI_MEM_LOG_LEVEL, 'warn')
+    logLevel: parseLogLevel(env.PI_MEM_LOG_LEVEL, 'warn')
   };
 }

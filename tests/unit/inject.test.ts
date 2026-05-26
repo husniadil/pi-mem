@@ -17,7 +17,10 @@ import { runHook } from '../../src/worker.ts';
 
 describe('inject', () => {
   let notify: ReturnType<typeof vi.fn>;
-  beforeEach(() => { vi.clearAllMocks(); notify = vi.fn(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    notify = vi.fn();
+  });
 
   it('fetchAndCacheContext stores additionalContext and calls notify on systemMessage', async () => {
     (runHook as any).mockResolvedValue({

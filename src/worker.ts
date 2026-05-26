@@ -26,12 +26,17 @@ function awaitExit(child: ChildProcess, opts: SpawnOpts): Promise<{ code: number
   return new Promise((resolve, reject) => {
     const stderrPromise = collect(child.stderr!);
     const timer = setTimeout(() => {
-      try { child.kill('SIGKILL'); } catch {}
+      try {
+        child.kill('SIGKILL');
+      } catch {}
       reject(new Error(`pi-mem worker spawn timed out after ${opts.timeoutMs}ms`));
     }, opts.timeoutMs);
 
-    child.on('error', err => { clearTimeout(timer); reject(err); });
-    child.on('exit', async code => {
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on('exit', async (code) => {
       clearTimeout(timer);
       const stderr = await stderrPromise;
       resolve({ code: code ?? 0, stderr });
@@ -93,15 +98,17 @@ export function runHookFireAndForget(
     opts.logger.warn(`capture stdin write failed for ${command}: ${(err as Error).message}`);
   }
   const timer = setTimeout(() => {
-    try { child.kill('SIGKILL'); } catch {}
+    try {
+      child.kill('SIGKILL');
+    } catch {}
     opts.logger.warn(`capture ${command} timed out, killed`);
   }, opts.timeoutMs);
   timer.unref();
-  child.on('error', err => {
+  child.on('error', (err) => {
     clearTimeout(timer);
     opts.logger.warn(`capture ${command} error: ${err.message}`);
   });
-  child.on('exit', code => {
+  child.on('exit', (code) => {
     clearTimeout(timer);
     if (code !== 0) opts.logger.warn(`capture ${command} exit ${code}`);
   });

@@ -35,8 +35,12 @@ const log = createLogger('silent');
 
 describe('worker', () => {
   let spawnMock: any;
-  beforeEach(() => { spawnMock = vi.spyOn(cp, 'spawn'); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    spawnMock = vi.spyOn(cp, 'spawn');
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('runHook resolves with parsed JSON on success', async () => {
     spawnMock.mockReturnValue(makeChild({ stdout: '{"hookSpecificOutput":{"additionalContext":"hi"}}' }) as any);
@@ -61,16 +65,12 @@ describe('worker', () => {
 
   it('runHook rejects on non-zero exit', async () => {
     spawnMock.mockReturnValue(makeChild({ code: 1, stderr: 'boom' }) as any);
-    await expect(
-      runHook(PATHS, 'pi', 'context', {}, { timeoutMs: 1000, logger: log })
-    ).rejects.toThrow(/exit 1/);
+    await expect(runHook(PATHS, 'pi', 'context', {}, { timeoutMs: 1000, logger: log })).rejects.toThrow(/exit 1/);
   });
 
   it('runHook times out and force-kills', async () => {
     spawnMock.mockReturnValue(makeChild({ delayMs: 5000 }) as any);
-    await expect(
-      runHook(PATHS, 'pi', 'context', {}, { timeoutMs: 50, logger: log })
-    ).rejects.toThrow(/timed out/);
+    await expect(runHook(PATHS, 'pi', 'context', {}, { timeoutMs: 50, logger: log })).rejects.toThrow(/timed out/);
   });
 
   it('runHook tolerates non-JSON stdout (returns empty object)', async () => {
@@ -82,8 +82,7 @@ describe('worker', () => {
   it('runHookFireAndForget calls unref() and does not throw on failure', () => {
     const child = makeChild({ code: 1 });
     spawnMock.mockReturnValue(child as any);
-    expect(() => runHookFireAndForget(PATHS, 'pi', 'observation', {}, { timeoutMs: 1000, logger: log }))
-      .not.toThrow();
+    expect(() => runHookFireAndForget(PATHS, 'pi', 'observation', {}, { timeoutMs: 1000, logger: log })).not.toThrow();
     expect(child.unref).toHaveBeenCalled();
   });
 

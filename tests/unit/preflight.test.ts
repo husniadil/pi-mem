@@ -18,7 +18,10 @@ vi.mock('../../src/worker.ts', () => ({
 import { runStart } from '../../src/worker.ts';
 
 describe('preflight', () => {
-  beforeEach(() => { vi.restoreAllMocks(); (runStart as any).mockResolvedValue(undefined); });
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    (runStart as any).mockResolvedValue(undefined);
+  });
 
   it('returns disabled when worker paths unresolvable', async () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(false);

@@ -18,7 +18,9 @@ describe('paths', () => {
     readdirMock = vi.spyOn(fs, 'readdirSync');
     statMock = vi.spyOn(fs, 'statSync');
   });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('prefers $CLAUDE_PLUGIN_ROOT when set and file exists', () => {
     existsMock.mockImplementation((p: any) => String(p).startsWith('/plugin-root/'));
