@@ -359,7 +359,9 @@ Not blockers for MVP. Documented for the next iteration.
 - **Monorepo identity.** `realpath(cwd)` means two pi sessions in different subdirs of the same repo are two claude-mem projects. Acceptable for MVP. If users complain, add a `PI_MEM_PROJECT_ROOT` env override.
 - **Submitting an upstream `pi` adapter.** If the maintainer changes their stance, replace `rawAdapter`-via-`default` with an explicit `pi` adapter case. Code-path stays subprocess; only the platform-name validation moves upstream.
 - **Capture batching.** If subprocess spawn rate (one per tool_result) ever becomes a measurable cost, switch capture to a long-lived child process with stdin-multiplexing. Not needed at MVP scale.
-- **Pi tool surface beyond `mem_search`.** If demand emerges, add `mem_recent`, `mem_smart_search`, etc. that wrap `/api/*` endpoints.
+- **Pi tool surface beyond `mem_search`.** If demand emerges, add tools that wrap claude-mem's other MCP-facing endpoints:
+  - **`mem_get_observations({ ids: number[] })`** — fetch full observation records (title, narrative, facts, files, etc.) by ID. Claude Code's UX uses this after `mem_search` returns IDs in the result table. Endpoint: `POST /api/observations/batch` body `{ ids: number[] }` → bare array of records (23 fields each; non-existent IDs silently dropped). 2026-05-26 probe confirmed shape; tracked as a future task post-MVP.
+  - **`mem_recent`**, **`mem_smart_search`**, **`mem_timeline`**, etc. — wrap `/api/*` endpoints corresponding to the MCP tools `smart_search`, `smart_outline`, `timeline`, `memory_context` already exposed by claude-mem.
 
 ## 10. Revision History
 
