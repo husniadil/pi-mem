@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question about claude-mem itself
+    url: https://github.com/thedotmack/claude-mem/issues
+    about: pi-mem is a thin bridge — corpus / observation generation / search ranking issues belong upstream.
+  - name: Question about pi itself
+    url: https://github.com/earendil-works/pi/issues
+    about: Pi runtime, extension API, or tool-loop issues belong with the pi maintainers.
