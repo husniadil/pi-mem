@@ -11,7 +11,7 @@ A pi extension package that bridges pi sessions to an existing `claude-mem` inst
 
 ## 1. Compatibility & Fragility (LOAD-BEARING)
 
-**Read this first.** pi-mem deliberately interoperates with `claude-mem` even though the claude-mem maintainer has declined to add first-class pi support. Concrete consequences:
+**Read this first.** pi-mem deliberately interoperates with `claude-mem` even though the claude-mem maintainer **deprioritized** first-class pi support in the April 2026 backlog cleanup (upstream PR [#1786](https://github.com/thedotmack/claude-mem/pull/1786) closed without technical rejection; consolidated into issue [#1963](https://github.com/thedotmack/claude-mem/issues/1963) and discussion [#1970](https://github.com/thedotmack/claude-mem/discussions/1970), both stalled with zero subsequent engagement). Concrete consequences:
 
 - pi-mem uses `claude-mem`'s host adapter system by passing platform name `pi`. Because `pi` is not in the adapter switch, claude-mem routes to `rawAdapter` via `default: return rawAdapter` in `src/cli/adapters/index.ts:22`. This is a switch fallback, not a contracted public API.
 - Any of these claude-mem changes break pi-mem with no notice:

@@ -92,8 +92,10 @@ the "what" (the diff already says what).
 - `observation_*` / `memory_*` server-beta-only tools (different runtime)
 - Knowledge corpus management (`build_corpus`, `prime_corpus`, etc.) —
   wait for explicit demand
-- Anything requiring claude-mem source changes (maintainer declined pi
-  support; we work strictly within rawAdapter fallback boundaries)
+- Anything requiring claude-mem source changes — maintainer deprioritized pi
+  support in the April 2026 backlog cleanup (PR #1786 closed, issue #1963 +
+  discussion #1970 stalled); we work strictly within `rawAdapter` fallback
+  boundaries
 
 If you want to propose something out-of-scope, open an issue and
 explain the use case. We may revisit.

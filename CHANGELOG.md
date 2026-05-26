@@ -60,9 +60,15 @@ Inherited transparently from claude-mem (no pi-mem env var introduced):
 
 ### Known limitations
 
-- claude-mem maintainer declined first-class pi support. pi-mem identifies as
-  platform `pi` via claude-mem's `rawAdapter` fallback (`default: return rawAdapter`
-  in `src/cli/adapters/index.ts`) — a switch fallback, not a public API. Breaking
+- claude-mem maintainer deprioritized first-class pi support in the April 2026
+  backlog cleanup (upstream PR
+  [#1786](https://github.com/thedotmack/claude-mem/pull/1786) closed without
+  technical rejection; consolidated into issue
+  [#1963](https://github.com/thedotmack/claude-mem/issues/1963) and discussion
+  [#1970](https://github.com/thedotmack/claude-mem/discussions/1970) with zero
+  subsequent engagement). pi-mem identifies as platform `pi` via claude-mem's
+  `rawAdapter` fallback (`default: return rawAdapter` in
+  `src/cli/adapters/index.ts`) — a switch fallback, not a public API. Breaking
   changes in claude-mem can break pi-mem with no notice.
 - Inject context is cached once per session at `session_start`. Mid-session new
   observations don't appear in `systemPrompt` until session restart. Use the

@@ -7,9 +7,11 @@
 
 Pi extension that bridges to [claude-mem](https://github.com/thedotmack/claude-mem) for persistent cross-session memory. Mirrors Claude Code's memory UX inside pi: auto-injects context at session start (with TUI banner), captures pi events as observations, and exposes the full 3-layer memory workflow (`mem_search` → `mem_timeline` → `mem_get_observations`) to the agent.
 
-## Important: Maintainer Non-Support
+## Important: Maintainer Deprioritization
 
-claude-mem's maintainer has explicitly declined to add first-class pi support. This package uses claude-mem's `rawAdapter` fallback (`default: return rawAdapter` in `src/cli/adapters/index.ts`) — a switch fallback, not a public API. **Any breaking change in claude-mem can break pi-mem with no notice.** Pin to `claude-mem` 13.x and don't file pi-mem bugs against claude-mem.
+claude-mem's maintainer **deprioritized** first-class pi support in the April 2026 backlog cleanup. Upstream PR [#1786](https://github.com/thedotmack/claude-mem/pull/1786) (a `pi-agent/` package nearly identical in scope to this one) was closed without technical rejection — consolidated into tracking issue [#1963](https://github.com/thedotmack/claude-mem/issues/1963) → discussion [#1970](https://github.com/thedotmack/claude-mem/discussions/1970) with zero subsequent engagement.
+
+This package fills that gap externally. It uses claude-mem's `rawAdapter` fallback (`default: return rawAdapter` in `src/cli/adapters/index.ts`) — a switch fallback, not a public API. **Any breaking change in claude-mem can break pi-mem with no notice.** Pin to `claude-mem` 13.x and don't file pi-mem bugs against claude-mem.
 
 ## Prerequisites
 
