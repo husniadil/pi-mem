@@ -1,0 +1,31 @@
+{
+  "name": "@husniadil/pi-mem",
+  "version": "0.1.0",
+  "description": "Pi extension that bridges to claude-mem for persistent cross-session memory",
+  "type": "module",
+  "license": "MIT",
+  "author": "Husni Adil <husni.adil@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/husniadil/pi-mem.git"
+  },
+  "keywords": ["pi-package", "pi", "claude-mem", "memory", "ai", "coding-agent", "extension"],
+  "pi": { "extensions": ["./src/index.ts"] },
+  "files": ["src/", "README.md", "LICENSE", "CHANGELOG.md"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.74.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.74.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": { "node": ">=22.0.0" }
+}
