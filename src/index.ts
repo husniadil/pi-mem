@@ -8,8 +8,10 @@ import { captureUserMessage, captureToolResult, captureAgentEnd } from './captur
 import {
   handleSearch,
   handleGetObservations,
+  handleTimeline,
   MemSearchParams,
-  MemGetObservationsParams
+  MemGetObservationsParams,
+  MemTimelineParams
 } from './tool.ts';
 import type { SessionState, ResolvedPaths } from './types.ts';
 
@@ -105,6 +107,22 @@ export default async function piMem(pi: any): Promise<void> {
     async execute(_toolCallId: string, params: { ids: number[]; orderBy?: 'date_desc' | 'date_asc'; limit?: number; project?: string }) {
       const text = state
         ? await handleGetObservations(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
+        : 'Error: pi-mem not initialized (no active session)';
+      return {
+        content: [{ type: 'text', text }],
+        details: {}
+      };
+    }
+  });
+
+  pi.registerTool({
+    name: 'mem_timeline',
+    label: 'Memory timeline',
+    description: 'Get context around an observation: returns the N items before and after an anchor (observation ID, session ID, or ISO timestamp), OR finds the anchor automatically by query. Use as Step 2 between mem_search (Step 1) and mem_get_observations (Step 3) to drill into an interesting period.',
+    parameters: MemTimelineParams,
+    async execute(_toolCallId: string, params: { anchor?: string | number; query?: string; depth_before?: number; depth_after?: number; project?: string }) {
+      const text = state
+        ? await handleTimeline(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
         : 'Error: pi-mem not initialized (no active session)';
       return {
         content: [{ type: 'text', text }],

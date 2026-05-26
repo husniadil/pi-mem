@@ -1,6 +1,6 @@
 import { Type, type Static } from 'typebox';
-import { search, getObservations } from './search.ts';
-import type { SessionState, GetObservationsParams } from './types.ts';
+import { search, getObservations, timeline } from './search.ts';
+import type { SessionState, GetObservationsParams, TimelineParams } from './types.ts';
 import type { Logger } from './logger.ts';
 
 export const MemSearchParams = Type.Object({
@@ -74,6 +74,42 @@ export async function handleGetObservations(
       timeoutMs: ctx.timeoutMs
     });
     return JSON.stringify(records, null, 2);
+  } catch (err) {
+    return `Error: ${(err as Error).message}`;
+  }
+}
+
+export const MemTimelineParams = Type.Object({
+  anchor: Type.Optional(Type.Union(
+    [Type.String(), Type.Number()],
+    { description: 'Observation ID (number), session ID (e.g. "S123"), or ISO timestamp. XOR with `query`.' }
+  )),
+  query: Type.Optional(Type.String({
+    description: 'Full-text query — claude-mem finds the top match and uses it as anchor. XOR with `anchor`.'
+  })),
+  depth_before: Type.Optional(Type.Number({
+    description: 'Items before the anchor (default 10 at claude-mem side)',
+    minimum: 1
+  })),
+  depth_after: Type.Optional(Type.Number({
+    description: 'Items after the anchor (default 10 at claude-mem side)',
+    minimum: 1
+  })),
+  project: Type.Optional(Type.String({
+    description: 'Restrict timeline to one project'
+  }))
+});
+export type MemTimelineArgs = Static<typeof MemTimelineParams>;
+
+export async function handleTimeline(args: MemTimelineArgs, ctx: ToolCtx): Promise<string> {
+  if (!ctx.state.enabled) return 'Error: pi-mem disabled (preflight failed)';
+  try {
+    const res = await timeline(args as TimelineParams, {
+      env: ctx.env,
+      logger: ctx.logger,
+      timeoutMs: ctx.timeoutMs
+    });
+    return extractMarkdown(res);
   } catch (err) {
     return `Error: ${(err as Error).message}`;
   }

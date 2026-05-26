@@ -5,12 +5,18 @@ import {
   extractMarkdown,
   MemSearchParams,
   handleGetObservations,
-  MemGetObservationsParams
+  MemGetObservationsParams,
+  handleTimeline,
+  MemTimelineParams
 } from '../../src/tool.ts';
 import { createLogger } from '../../src/logger.ts';
 
-vi.mock('../../src/search.ts', () => ({ search: vi.fn(), getObservations: vi.fn() }));
-import { search, getObservations } from '../../src/search.ts';
+vi.mock('../../src/search.ts', () => ({
+  search: vi.fn(),
+  getObservations: vi.fn(),
+  timeline: vi.fn()
+}));
+import { search, getObservations, timeline } from '../../src/search.ts';
 
 const log = createLogger('silent');
 const env = { HOME: '/home/u' };
@@ -127,5 +133,58 @@ describe('mem_get_observations tool', () => {
     );
     const callArgs = (getObservations as any).mock.calls[0]!;
     expect(callArgs[0]).toEqual({ ids: [1, 2], orderBy: 'date_desc', limit: 5, project: 'foo' });
+  });
+});
+
+describe('mem_timeline tool', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('schema declares anchor (string|number) OR query, optional depth_before/depth_after/project', () => {
+    const schema = MemTimelineParams as any;
+    expect(schema.type).toBe('object');
+    expect(schema.required ?? []).toEqual([]);
+    expect(schema.properties.anchor.anyOf || schema.properties.anchor.oneOf).toBeDefined();
+    expect(schema.properties.query.type).toBe('string');
+    expect(schema.properties.depth_before.type).toBe('number');
+    expect(schema.properties.depth_after.type).toBe('number');
+    expect(schema.properties.project.type).toBe('string');
+  });
+
+  it('returns error string when state.enabled=false', async () => {
+    const r = await handleTimeline(
+      { anchor: 1 },
+      { state: { ...state, enabled: false }, env, logger: log, timeoutMs: 1000 }
+    );
+    expect(r).toMatch(/disabled/);
+  });
+
+  it('passes through claude-mem markdown on success', async () => {
+    const md = '### Timeline\n| ID | Title |\n|----|-------|\n| #1 | A |';
+    (timeline as any).mockResolvedValue({ content: [{ type: 'text', text: md }] });
+    const r = await handleTimeline({ anchor: 1 }, { state, env, logger: log, timeoutMs: 1000 });
+    expect(r).toBe(md);
+  });
+
+  it('passes through error markdown from claude-mem (XOR violation, anchor not found)', async () => {
+    const errMd = 'Error: Cannot provide both "anchor" and "query" parameters. Use one or the other.';
+    (timeline as any).mockResolvedValue({ content: [{ type: 'text', text: errMd }], isError: true });
+    const r = await handleTimeline({ anchor: 1, query: 'x' }, { state, env, logger: log, timeoutMs: 1000 });
+    expect(r).toBe(errMd);
+  });
+
+  it('returns error string when timeline throws', async () => {
+    (timeline as any).mockRejectedValue(new Error('worker not reachable'));
+    const r = await handleTimeline({ anchor: 1 }, { state, env, logger: log, timeoutMs: 1000 });
+    expect(r).toMatch(/Error: .*worker not reachable/);
+  });
+
+  it('forwards all params to timeline()', async () => {
+    (timeline as any).mockResolvedValue({ content: [{ type: 'text', text: 'ok' }] });
+    await handleTimeline(
+      { anchor: 42, depth_before: 5, depth_after: 3, project: 'pi-mem' },
+      { state, env, logger: log, timeoutMs: 1000 }
+    );
+    const callArgs = (timeline as any).mock.calls[0]!;
+    expect(callArgs[0]).toEqual({ anchor: 42, depth_before: 5, depth_after: 3, project: 'pi-mem' });
   });
 });
