@@ -1,6 +1,6 @@
 // tests/unit/capture.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { captureUserMessage, captureToolResult, captureAgentEnd } from '../../src/capture.ts';
+import { captureUserMessage, captureToolResult, captureAgentEnd, extractTextContent } from '../../src/capture.ts';
 import { createSessionState } from '../../src/session.ts';
 import { createLogger } from '../../src/logger.ts';
 
@@ -71,5 +71,84 @@ describe('capture', () => {
     captureToolResult({ tool: { name: 'Read' } }, ctx);
     captureAgentEnd({}, ctx);
     expect(runHookFireAndForget).not.toHaveBeenCalled();
+  });
+
+  // --- content-block extraction (pi 0.74+ message shape) ---
+
+  it('captureUserMessage extracts text from content-block array', () => {
+    captureUserMessage({
+      message: { role: 'user', content: [{ type: 'text', text: 'hari ini saya ngapain aja?' }] }
+    }, captureCtx());
+    expect(runHookFireAndForget).toHaveBeenCalledWith(
+      paths, 'pi', 'session-init',
+      expect.objectContaining({ prompt: 'hari ini saya ngapain aja?' }),
+      expect.anything()
+    );
+  });
+
+  it('captureUserMessage joins multiple text blocks with newline', () => {
+    captureUserMessage({
+      message: { role: 'user', content: [
+        { type: 'text', text: 'line 1' },
+        { type: 'text', text: 'line 2' }
+      ]}
+    }, captureCtx());
+    expect(runHookFireAndForget).toHaveBeenCalledWith(
+      paths, 'pi', 'session-init',
+      expect.objectContaining({ prompt: 'line 1\nline 2' }),
+      expect.anything()
+    );
+  });
+
+  it('captureUserMessage drops non-text blocks (image, resource)', () => {
+    captureUserMessage({
+      message: { role: 'user', content: [
+        { type: 'image', source: '...' } as any,
+        { type: 'text', text: 'actual prompt' }
+      ]}
+    }, captureCtx());
+    expect(runHookFireAndForget).toHaveBeenCalledWith(
+      paths, 'pi', 'session-init',
+      expect.objectContaining({ prompt: 'actual prompt' }),
+      expect.anything()
+    );
+  });
+
+  it('captureUserMessage no-ops when content has no text (e.g., image-only)', () => {
+    captureUserMessage({
+      message: { role: 'user', content: [{ type: 'image', source: '...' } as any] }
+    }, captureCtx());
+    expect(runHookFireAndForget).not.toHaveBeenCalled();
+  });
+
+  it('captureToolResult normalizes content-block array output to plain text', () => {
+    captureToolResult({
+      tool: { name: 'mem_search' },
+      input: { query: 'WBR' },
+      output: [{ type: 'text', text: 'Found 3 results' }]
+    }, captureCtx());
+    const payload = (runHookFireAndForget as any).mock.calls[0][3];
+    expect(payload.toolResponse).toBe('Found 3 results');
+  });
+
+  it('captureToolResult passes through string output unchanged', () => {
+    captureToolResult({
+      tool: { name: 'Read' },
+      input: { path: '/x' },
+      output: 'raw content'
+    }, captureCtx());
+    const payload = (runHookFireAndForget as any).mock.calls[0][3];
+    expect(payload.toolResponse).toBe('raw content');
+  });
+
+  it('extractTextContent: empty/missing/non-array → empty string', () => {
+    expect(extractTextContent(undefined)).toBe('');
+    expect(extractTextContent(null)).toBe('');
+    expect(extractTextContent({})).toBe('');
+    expect(extractTextContent(123)).toBe('');
+  });
+
+  it('extractTextContent: string passes through', () => {
+    expect(extractTextContent('plain string')).toBe('plain string');
   });
 });
