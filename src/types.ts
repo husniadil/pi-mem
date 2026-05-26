@@ -80,4 +80,12 @@ export interface GetObservationsParams {
   project?: string;
 }
 
+export interface TimelineParams {
+  anchor?: string | number;
+  query?: string;
+  depth_before?: number;
+  depth_after?: number;
+  project?: string;
+}
+
 export type PiHookEvent = 'session_start' | 'before_agent_start' | 'message_end' | 'tool_result' | 'agent_end';

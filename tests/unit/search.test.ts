@@ -1,6 +1,6 @@
 // tests/unit/search.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { search, getObservations } from '../../src/search.ts';
+import { search, getObservations, timeline } from '../../src/search.ts';
 import { createLogger } from '../../src/logger.ts';
 
 const log = createLogger('silent');
@@ -136,5 +136,78 @@ describe('getObservations', () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({}) });
     await expect(getObservations({ ids: [1] }, { env, logger: log, timeoutMs: 1000 }))
       .rejects.toThrow(/HTTP 400/);
+  });
+});
+
+describe('timeline', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('GET /api/timeline with anchor (numeric) as query param', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await timeline({ anchor: 1234 }, { env, logger: log, timeoutMs: 1000 });
+    const url = fetchMock.mock.calls[0]![0];
+    expect(url).toBe('http://127.0.0.1:37777/api/timeline?anchor=1234');
+  });
+
+  it('GET /api/timeline with query mode', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await timeline({ query: 'auth bug' }, { env, logger: log, timeoutMs: 1000 });
+    const url = fetchMock.mock.calls[0]![0];
+    expect(url).toBe('http://127.0.0.1:37777/api/timeline?query=auth+bug');
+  });
+
+  it('forwards depth_before, depth_after, project when provided', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await timeline(
+      { anchor: 42, depth_before: 5, depth_after: 3, project: 'pi-mem' },
+      { env, logger: log, timeoutMs: 1000 }
+    );
+    const url = fetchMock.mock.calls[0]![0];
+    expect(url).toMatch(/anchor=42/);
+    expect(url).toMatch(/depth_before=5/);
+    expect(url).toMatch(/depth_after=3/);
+    expect(url).toMatch(/project=pi-mem/);
+  });
+
+  it('accepts string anchor (session ID, ISO timestamp)', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await timeline({ anchor: 'S123' }, { env, logger: log, timeoutMs: 1000 });
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://127.0.0.1:37777/api/timeline?anchor=S123');
+  });
+
+  it('omits undefined / empty optional params', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 });
+    const url = fetchMock.mock.calls[0]![0];
+    expect(url).toBe('http://127.0.0.1:37777/api/timeline?anchor=1');
+    expect(url).not.toMatch(/query=/);
+    expect(url).not.toMatch(/depth_/);
+    expect(url).not.toMatch(/project=/);
+  });
+
+  it('returns parsed JSON (MCP content shape) on success', async () => {
+    const body = { content: [{ type: 'text', text: 'timeline markdown' }] };
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
+    const r = await timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 });
+    expect(r).toEqual(body);
+  });
+
+  it('throws on ECONNREFUSED with helpful message', async () => {
+    const err = new TypeError('fetch failed') as any;
+    err.cause = { code: 'ECONNREFUSED' };
+    fetchMock.mockRejectedValue(err);
+    await expect(timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 }))
+      .rejects.toThrow(/worker not reachable/i);
+  });
+
+  it('throws on non-2xx', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    await expect(timeline({ anchor: 1 }, { env, logger: log, timeoutMs: 1000 }))
+      .rejects.toThrow(/HTTP 500/);
   });
 });
