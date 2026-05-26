@@ -5,7 +5,7 @@ import { createSessionState, deriveSessionId } from './session.ts';
 import { runPreflight } from './preflight.ts';
 import { fetchAndCacheContext, injectIntoSystemPrompt } from './inject.ts';
 import { captureUserMessage, captureToolResult, captureAgentEnd } from './capture.ts';
-import { handleSearch, MEM_SEARCH_SCHEMA } from './tool.ts';
+import { handleSearch, MemSearchParams } from './tool.ts';
 import type { SessionState, ResolvedPaths } from './types.ts';
 
 export default async function piMem(pi: any): Promise<void> {
@@ -70,12 +70,19 @@ export default async function piMem(pi: any): Promise<void> {
     captureAgentEnd(event, { state, config, paths, logger });
   });
 
-  pi.registerTool('mem_search', {
+  pi.registerTool({
+    name: 'mem_search',
+    label: 'Memory search',
     description: 'Search the claude-mem corpus for past observations relevant to a query.',
-    inputSchema: MEM_SEARCH_SCHEMA,
-    async handler(args: { query: string; limit?: number }) {
-      if (!state) return 'Error: pi-mem not initialized (no active session)';
-      return handleSearch(args, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs });
+    parameters: MemSearchParams,
+    async execute(_toolCallId: string, params: { query: string; limit?: number }) {
+      const text = state
+        ? await handleSearch(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
+        : 'Error: pi-mem not initialized (no active session)';
+      return {
+        content: [{ type: 'text', text }],
+        details: {}
+      };
     }
   });
 

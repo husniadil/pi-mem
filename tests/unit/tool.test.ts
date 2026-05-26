@@ -1,6 +1,6 @@
 // tests/unit/tool.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleSearch, formatResults, MEM_SEARCH_SCHEMA } from '../../src/tool.ts';
+import { handleSearch, formatResults, MemSearchParams } from '../../src/tool.ts';
 import { createLogger } from '../../src/logger.ts';
 
 vi.mock('../../src/search.ts', () => ({ search: vi.fn() }));
@@ -13,10 +13,13 @@ const state = { enabled: true, sessionId: 's', rootPath: '/r', ctxMarkdown: '' }
 describe('mem_search tool', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('schema declares query string, optional limit', () => {
-    expect(MEM_SEARCH_SCHEMA.required).toContain('query');
-    expect(MEM_SEARCH_SCHEMA.properties.query.type).toBe('string');
-    expect(MEM_SEARCH_SCHEMA.properties.limit.type).toBe('number');
+  it('schema declares query string (required) + limit number (optional)', () => {
+    const schema = MemSearchParams as any;
+    expect(schema.type).toBe('object');
+    expect(schema.required).toContain('query');
+    expect(schema.required).not.toContain('limit');
+    expect(schema.properties.query.type).toBe('string');
+    expect(schema.properties.limit.type).toBe('number');
   });
 
   it('returns error string when state.enabled=false', async () => {

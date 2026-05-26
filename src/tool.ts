@@ -1,15 +1,18 @@
+import { Type, type Static } from 'typebox';
 import { search } from './search.ts';
 import type { SearchResult, SessionState } from './types.ts';
 import type { Logger } from './logger.ts';
 
-export const MEM_SEARCH_SCHEMA = {
-  type: 'object',
-  properties: {
-    query: { type: 'string', description: 'Search query against claude-mem corpus' },
-    limit: { type: 'number', description: 'Max results (1-50)', default: 10, minimum: 1, maximum: 50 }
-  },
-  required: ['query']
-} as const;
+export const MemSearchParams = Type.Object({
+  query: Type.String({ description: 'Search query against claude-mem corpus' }),
+  limit: Type.Optional(Type.Number({
+    description: 'Max results (1-50)',
+    minimum: 1,
+    maximum: 50,
+    default: 10
+  }))
+});
+export type MemSearchArgs = Static<typeof MemSearchParams>;
 
 interface ToolCtx {
   state: SessionState;
@@ -40,7 +43,7 @@ export function formatResults(query: string, results: SearchResult[]): string {
   return `# Memory search: "${query}"\n\n${results.length} matches.\n\n${blocks.join('\n\n')}`;
 }
 
-export async function handleSearch(args: { query: string; limit?: number }, ctx: ToolCtx): Promise<string> {
+export async function handleSearch(args: MemSearchArgs, ctx: ToolCtx): Promise<string> {
   if (!ctx.state.enabled) return 'Error: pi-mem disabled (preflight failed)';
   try {
     const res = await search(args.query, { env: ctx.env, logger: ctx.logger, timeoutMs: ctx.timeoutMs });
