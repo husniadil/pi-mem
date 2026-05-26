@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { resolvePaths } from '../../src/paths.ts';
 import { runStart, runHook } from '../../src/worker.ts';
-import { search, getObservations } from '../../src/search.ts';
-import { handleSearch, handleGetObservations, extractMarkdown } from '../../src/tool.ts';
+import { search, getObservations, timeline } from '../../src/search.ts';
+import { handleSearch, handleGetObservations, handleTimeline, extractMarkdown } from '../../src/tool.ts';
 import { createSessionState } from '../../src/session.ts';
 import { createLogger } from '../../src/logger.ts';
 
@@ -174,6 +174,46 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
         { env, logger: log, timeoutMs: 5000 }
       )
     ).resolves.not.toThrow();
+  });
+
+  // --- mem_timeline drift guards ---
+
+  it('DRIFT GUARD: /api/timeline returns MCP content-block shape (same as /api/search)', async () => {
+    const searchRes = await search('the', { env, logger: log, timeoutMs: 5000 });
+    const idMatch = (searchRes.content?.[0]?.text ?? '').match(/\| #(\d+) \|/);
+    if (!idMatch) {
+      return; // Empty corpus — skip
+    }
+    const id = parseInt(idMatch[1]!, 10);
+
+    const res = await timeline({ anchor: id, depth_before: 1, depth_after: 1 }, { env, logger: log, timeoutMs: 5000 });
+    expect(res).toBeTypeOf('object');
+    expect(Array.isArray(res.content), 'response.content must be an array').toBe(true);
+    expect(res.content!.length, 'response.content must have at least one block').toBeGreaterThan(0);
+    expect(res.content![0]!.type, 'first block.type must be "text"').toBe('text');
+    expect(typeof res.content![0]!.text, 'first block.text must be a string').toBe('string');
+  });
+
+  it('DRIFT GUARD: handleTimeline returns non-empty markdown via extractMarkdown', async () => {
+    const state2 = { ...createSessionState({ sessionId: 'pi-mem-integration-test', rootPath: process.cwd() }) };
+    const r = await handleTimeline(
+      { query: 'the' },
+      { state: state2, env, logger: log, timeoutMs: 5000 }
+    );
+    expect(r).not.toMatch(/empty or malformed/i);
+    expect(r.length).toBeGreaterThan(5);
+  });
+
+  it('DRIFT GUARD: XOR validation enforced by claude-mem (anchor + query → error markdown)', async () => {
+    const res = await timeline({ anchor: 1, query: 'x' }, { env, logger: log, timeoutMs: 5000 });
+    const text = res.content?.[0]?.text ?? '';
+    expect(text).toMatch(/cannot provide both/i);
+  });
+
+  it('DRIFT GUARD: neither anchor nor query → error markdown (not crash)', async () => {
+    const res = await timeline({}, { env, logger: log, timeoutMs: 5000 });
+    const text = res.content?.[0]?.text ?? '';
+    expect(text).toMatch(/must provide either/i);
   });
 
   it('multi-turn re-injection regression: ctxMarkdown stays constant', async () => {
