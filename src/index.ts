@@ -47,7 +47,11 @@ export default async function piMem(pi: any): Promise<void> {
   pi.on('before_agent_start', async (event: any) => {
     if (!state) return event;
     const newPrompt = injectIntoSystemPrompt(event.systemPrompt ?? '', state);
-    if (newPrompt === (event.systemPrompt ?? '')) return event;
+    if (newPrompt === (event.systemPrompt ?? '')) {
+      if (!state.enabled) logger.debug('inject skipped: pi-mem disabled (preflight failed)');
+      else if (!state.ctxMarkdown) logger.debug('inject skipped: no memory available for this project yet');
+      return event;
+    }
     return { ...event, systemPrompt: newPrompt };
   });
 
