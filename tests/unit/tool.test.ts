@@ -1,10 +1,16 @@
 // tests/unit/tool.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleSearch, extractMarkdown, MemSearchParams } from '../../src/tool.ts';
+import {
+  handleSearch,
+  extractMarkdown,
+  MemSearchParams,
+  handleGetObservations,
+  MemGetObservationsParams
+} from '../../src/tool.ts';
 import { createLogger } from '../../src/logger.ts';
 
-vi.mock('../../src/search.ts', () => ({ search: vi.fn() }));
-import { search } from '../../src/search.ts';
+vi.mock('../../src/search.ts', () => ({ search: vi.fn(), getObservations: vi.fn() }));
+import { search, getObservations } from '../../src/search.ts';
 
 const log = createLogger('silent');
 const env = { HOME: '/home/u' };
@@ -67,5 +73,59 @@ describe('mem_search tool', () => {
       { type: 'text', text: 'the answer' }
     ]};
     expect(extractMarkdown(res)).toBe('the answer');
+  });
+});
+
+describe('mem_get_observations tool', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('schema requires ids (number array), optional orderBy/limit/project', () => {
+    const schema = MemGetObservationsParams as any;
+    expect(schema.type).toBe('object');
+    expect(schema.required).toContain('ids');
+    expect(schema.required).not.toContain('orderBy');
+    expect(schema.required).not.toContain('limit');
+    expect(schema.required).not.toContain('project');
+    expect(schema.properties.ids.type).toBe('array');
+    expect(schema.properties.ids.items.type).toBe('number');
+    expect(schema.properties.limit.type).toBe('number');
+    expect(schema.properties.project.type).toBe('string');
+  });
+
+  it('returns error string when state.enabled=false', async () => {
+    const r = await handleGetObservations(
+      { ids: [1] },
+      { state: { ...state, enabled: false }, env, logger: log, timeoutMs: 1000 }
+    );
+    expect(r).toMatch(/disabled/);
+  });
+
+  it('returns JSON.stringify(records, null, 2) on success', async () => {
+    const records = [{ id: 1, title: 'A' }, { id: 2, title: 'B' }];
+    (getObservations as any).mockResolvedValue(records);
+    const r = await handleGetObservations({ ids: [1, 2] }, { state, env, logger: log, timeoutMs: 1000 });
+    expect(r).toBe(JSON.stringify(records, null, 2));
+  });
+
+  it('returns "[]" stringified when claude-mem returns empty array', async () => {
+    (getObservations as any).mockResolvedValue([]);
+    const r = await handleGetObservations({ ids: [9999] }, { state, env, logger: log, timeoutMs: 1000 });
+    expect(r).toBe('[]');
+  });
+
+  it('returns error string when getObservations throws', async () => {
+    (getObservations as any).mockRejectedValue(new Error('worker not reachable'));
+    const r = await handleGetObservations({ ids: [1] }, { state, env, logger: log, timeoutMs: 1000 });
+    expect(r).toMatch(/Error: .*worker not reachable/);
+  });
+
+  it('forwards orderBy/limit/project to getObservations', async () => {
+    (getObservations as any).mockResolvedValue([]);
+    await handleGetObservations(
+      { ids: [1, 2], orderBy: 'date_desc', limit: 5, project: 'foo' },
+      { state, env, logger: log, timeoutMs: 1000 }
+    );
+    const callArgs = (getObservations as any).mock.calls[0]!;
+    expect(callArgs[0]).toEqual({ ids: [1, 2], orderBy: 'date_desc', limit: 5, project: 'foo' });
   });
 });
