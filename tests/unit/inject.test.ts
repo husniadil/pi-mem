@@ -63,4 +63,24 @@ describe('inject', () => {
     state.enabled = false;
     expect(injectIntoSystemPrompt('BASE', state)).toBe('BASE');
   });
+
+  it('CRITICAL spec §4.3: injectIntoSystemPrompt returns wrapped content on EVERY call (not just first)', () => {
+    const state = createSessionState({ sessionId: 's', rootPath: '/r' });
+    state.ctxMarkdown = '## obs';
+    // Simulate 5 turns
+    for (let turn = 1; turn <= 5; turn++) {
+      const r = injectIntoSystemPrompt('BASE', state);
+      expect(r, `turn ${turn}`).toBe('BASE\n\n<claude-mem-context>\n## obs\n</claude-mem-context>');
+    }
+  });
+
+  it('CRITICAL spec §4.3: re-inject content identical across turns (cache-friendly)', () => {
+    const state = createSessionState({ sessionId: 's', rootPath: '/r' });
+    state.ctxMarkdown = '## obs';
+    const r1 = injectIntoSystemPrompt('BASE', state);
+    const r2 = injectIntoSystemPrompt('BASE', state);
+    const r3 = injectIntoSystemPrompt('BASE', state);
+    expect(r1).toBe(r2);
+    expect(r2).toBe(r3);
+  });
 });
