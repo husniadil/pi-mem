@@ -5,7 +5,12 @@ import { createSessionState, deriveSessionId } from './session.ts';
 import { runPreflight } from './preflight.ts';
 import { fetchAndCacheContext, injectIntoSystemPrompt } from './inject.ts';
 import { captureUserMessage, captureToolResult, captureAgentEnd } from './capture.ts';
-import { handleSearch, MemSearchParams } from './tool.ts';
+import {
+  handleSearch,
+  handleGetObservations,
+  MemSearchParams,
+  MemGetObservationsParams
+} from './tool.ts';
 import type { SessionState, ResolvedPaths } from './types.ts';
 
 export default async function piMem(pi: any): Promise<void> {
@@ -84,6 +89,22 @@ export default async function piMem(pi: any): Promise<void> {
     async execute(_toolCallId: string, params: { query: string; limit?: number }) {
       const text = state
         ? await handleSearch(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
+        : 'Error: pi-mem not initialized (no active session)';
+      return {
+        content: [{ type: 'text', text }],
+        details: {}
+      };
+    }
+  });
+
+  pi.registerTool({
+    name: 'mem_get_observations',
+    label: 'Memory observations',
+    description: 'Fetch full observation records by ID from the claude-mem corpus. Pair with mem_search: search returns IDs, then call this to get full title/narrative/facts/files for those IDs.',
+    parameters: MemGetObservationsParams,
+    async execute(_toolCallId: string, params: { ids: number[]; orderBy?: 'date_desc' | 'date_asc'; limit?: number; project?: string }) {
+      const text = state
+        ? await handleGetObservations(params, { state, env: process.env, logger, timeoutMs: config.spawnTimeoutMs })
         : 'Error: pi-mem not initialized (no active session)';
       return {
         content: [{ type: 'text', text }],
