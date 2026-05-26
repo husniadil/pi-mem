@@ -96,6 +96,7 @@ export function runHookFireAndForget(
     try { child.kill('SIGKILL'); } catch {}
     opts.logger.warn(`capture ${command} timed out, killed`);
   }, opts.timeoutMs);
+  timer.unref();
   child.on('error', err => {
     clearTimeout(timer);
     opts.logger.warn(`capture ${command} error: ${err.message}`);

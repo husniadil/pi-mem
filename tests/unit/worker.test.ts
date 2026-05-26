@@ -87,6 +87,23 @@ describe('worker', () => {
     expect(child.unref).toHaveBeenCalled();
   });
 
+  it('runHookFireAndForget unrefs the timeout timer so process can exit cleanly', () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    let capturedTimer: NodeJS.Timeout | null = null;
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: any, ms: any) => {
+      const t = originalSetTimeout(fn, ms);
+      capturedTimer = t;
+      vi.spyOn(t as any, 'unref');
+      return t;
+    });
+    const child = makeChild({ code: 0 });
+    spawnMock.mockReturnValue(child as any);
+    runHookFireAndForget(PATHS, 'pi', 'observation', {}, { timeoutMs: 1000, logger: log });
+    expect(capturedTimer).not.toBeNull();
+    expect((capturedTimer as any).unref).toHaveBeenCalled();
+    setTimeoutSpy.mockRestore();
+  });
+
   it('runStart spawns node bun-runner worker start', async () => {
     spawnMock.mockReturnValue(makeChild({ code: 0 }) as any);
     await runStart(PATHS, { timeoutMs: 60000, logger: log });
