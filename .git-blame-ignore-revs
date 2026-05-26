@@ -1,0 +1,5 @@
+# Format normalization passes — skip in git blame
+# Configure locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: apply Biome + Prettier formatting to existing codebase
+1879b15cd694b1d6fbfecce8b295123be4413583

@@ -10,14 +10,46 @@ development workflow (grounding → spec/plan → TDD → review).
 # Node 22 from .nvmrc
 nvm use   # or: fnm use, asdf use, mise use
 
-npm install
+npm install            # auto-installs the pre-commit hook via `prepare`
 npm test               # full unit + integration suite
-npx tsc --noEmit       # type check
+npm run typecheck      # tsc --noEmit
+npm run check          # biome format/lint + prettier (markdown), read-only
+npm run check:fix      # auto-fix format + safe lint issues
 ```
 
 Integration tests under `tests/integration/` auto-skip via
 `describe.skipIf(!haveClaudeMem)` when claude-mem isn't installed.
 To exercise them: `npx claude-mem install` first.
+
+### Pre-commit hook
+
+`simple-git-hooks` installs a pre-commit hook that runs:
+
+```
+npm run check && npm run typecheck
+```
+
+Read-only (no auto-fix on commit). Fail-fast (~2–3s). If it blocks
+your commit, run `npm run check:fix` to auto-format, re-stage,
+re-commit.
+
+**Partial-stage trap:** the hook runs `biome check` against the entire
+working tree, not just staged files. If you have a format-dirty
+unstaged file alongside your staged change, the hook will fail even
+though that file isn't part of your commit. Two workarounds:
+
+- Run `npm run check:fix` to fix everything first (cleanest), or
+- Temporarily skip the hook: `SKIP_SIMPLE_GIT_HOOKS=1 git commit ...`
+  (use sparingly — CI runs the same checks)
+
+### Git blame archaeology
+
+Project includes `.git-blame-ignore-revs` to skip the one-time format
+normalization commit. GitHub blame auto-respects it. For local CLI:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ## Workflow
 
