@@ -1,5 +1,10 @@
 # @husniadil/pi-mem
 
+[![npm version](https://img.shields.io/npm/v/@husniadil/pi-mem.svg)](https://www.npmjs.com/package/@husniadil/pi-mem)
+[![CI](https://github.com/husniadil/pi-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/husniadil/pi-mem/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Node](https://img.shields.io/node/v/@husniadil/pi-mem.svg)](./package.json)
+
 Pi extension that bridges to [claude-mem](https://github.com/thedotmack/claude-mem) for persistent cross-session memory. Mirrors Claude Code's memory UX inside pi: auto-injects context at session start (with TUI banner), captures pi events as observations, and exposes the full 3-layer memory workflow (`mem_search` → `mem_timeline` → `mem_get_observations`) to the agent.
 
 ## Important: Maintainer Non-Support
