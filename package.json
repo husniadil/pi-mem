@@ -4,7 +4,7 @@
   "description": "Pi extension that bridges to claude-mem for persistent cross-session memory",
   "type": "module",
   "license": "MIT",
-  "author": "Husni Adil <husni.adil@gmail.com>",
+  "author": "Husni Adil Makmur <husni.adil@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/husniadil/pi-mem.git"
