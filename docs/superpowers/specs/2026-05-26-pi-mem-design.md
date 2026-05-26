@@ -62,7 +62,7 @@ A pi extension package that bridges pi sessions to an existing `claude-mem` inst
 │   ├── session.ts                  # in-memory per-session state
 │   ├── inject.ts                   # session_start fetch + before_agent_start re-inject
 │   ├── capture.ts                  # message_end / tool_result / agent_end → spawn worker
-│   ├── tool.ts                     # pi.registerTool('mem_search', ...)
+│   ├── tool.ts                     # pi.registerTool({ name: 'mem_search', ... })
 │   ├── preflight.ts                # file-existence + version sanity
 │   ├── logger.ts                   # pi.logger wrapper with secret redaction
 │   └── types.ts                    # shared types
@@ -80,7 +80,7 @@ pi-mem hardcodes the string `pi` as the platform name passed to `worker-service.
 ### 3.2 Dependencies
 
 - **Runtime**: zero. Only Node built-ins: `child_process`, `fs`, `path`, `os`, `crypto`.
-- **Peer**: `@earendil-works/pi-coding-agent` (for `ExtensionAPI` types). `mem_search` tool uses a plain JSON Schema literal (no validator dependency).
+- **Peer**: `@earendil-works/pi-coding-agent` (for `ExtensionAPI` types), `typebox` (for `mem_search` tool parameters schema — pi's `registerTool` contract requires TypeBox).
 - **Dev**: `typescript`, `vitest`, `@types/node`.
 - **Engines**: `node >= 22`.
 
@@ -128,10 +128,12 @@ agent_end           ─►   worker.runHookFireAndForget(      ─►   worker-s
 session_shutdown    ─►   no-op (worker daemon is shared with Claude Code instances)
 
 LLM calls mem_search({query, limit?}):
-                    ─►   search.httpGet(                   ─►   GET http://127.0.0.1:<port>/api/search?query=...
-                          query, limit ?? 10)                   no auth
-                                                                response: JSON
-                    ─►   return formatted markdown to LLM
+                    ─►   search.httpGet(                   ─►   GET http://127.0.0.1:<port>/api/search?query=...&limit=N
+                          query, limit)                          no auth
+                                                                 response: {content:[{type,text}]}
+                                                                 (MCP content-block, pre-formatted markdown)
+                    ─►   extractMarkdown(res.content) → text
+                    ─►   return text verbatim to LLM (claude-mem owns formatting)
 ```
 
 ### 4.2 Per-session in-memory state
@@ -140,7 +142,7 @@ LLM calls mem_search({query, limit?}):
 type SessionState = {
   enabled:      boolean;   // false after preflight failure → all handlers no-op
   sessionId:    string;    // externalized id derived from pi session id
-  rootPath:     string;    // realpath(process.cwd())
+  rootPath:     string;    // realpath(ctx.cwd) — pi's canonical session cwd
   ctxMarkdown:  string;    // cached additionalContext; empty string = no inject
 };
 ```
@@ -210,30 +212,13 @@ No retry, no queue, no in-memory buffer. Lost events are acceptable — the corp
 | `state.enabled === false` | Return `"Error: pi-mem disabled (preflight failed)"` to LLM |
 | HTTP fetch fails (ECONNREFUSED, timeout) | Return `"Error: claude-mem worker not reachable. Try \`npx claude-mem start\`."` |
 | HTTP non-2xx | Return `"Error: search failed (HTTP <status>)"` |
-| Empty result | Return `"No matches for query: <query>"` |
-| Success | Return formatted markdown (header + one block per observation) — see example below |
+| Empty result | claude-mem itself returns text like `Found 0 result(s) matching "<query>" (0 obs, 0 sessions, 0 prompts)` — pass through verbatim |
+| Malformed response (no text block) | Return `"Error: claude-mem returned an empty or malformed search response"` |
+| Success | Pass through `res.content[0].text` verbatim — claude-mem pre-formats markdown |
 
-**Output format example:**
+**Output format note:** claude-mem's `/api/search` returns MCP content-block shape `{ content: [{ type: 'text', text: '<markdown>' }] }` with the markdown already formatted (categorized by date, file, and observation/session/prompt counts). pi-mem does NOT build its own markdown — `extractMarkdown(res)` picks the first `type === 'text'` block and the result goes to the LLM unchanged. This keeps formatting consistent with what Claude Code users see and makes pi-mem resilient to claude-mem rendering tweaks.
 
-```markdown
-# Memory search: "auth middleware"
-
-3 matches.
-
-## 2026-05-20 — Auth middleware refactor
-Switched JWT verification from RS256 to ES256. Reasoning: ES256 has smaller signatures and faster verification on the hot path.
-Files: src/middleware/auth.ts, tests/auth.test.ts
-
-## 2026-05-18 — Rate-limit on /login
-Added redis-backed rate limiter with sliding window.
-Files: src/middleware/rate-limit.ts
-
-## 2026-05-15 — Session token rotation
-Implemented refresh-token rotation on every login.
-Files: src/auth/session.ts
-```
-
-Concrete shape: `# Memory search: "<query>"`, then `N matches.`, then per observation a `## <date> — <title>` heading, followed by narrative paragraph and `Files: <comma-sep paths>` line. Build from `/api/search` JSON response fields. If response has no `narrative`, omit the body. If no `filesModified`, omit the Files line.
+**Limit semantics:** when `mem_search({limit: N})` is invoked, N is forwarded as `?limit=N` to claude-mem, which caps each category (obs/sessions/prompts) at N — so total results may be up to 3N.
 
 ### 5.5 Secret hygiene
 
@@ -349,11 +334,14 @@ Run manually in local dev. CI runs them only when `claude-mem` is pre-installed 
     "lint": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.74.0"
+    "@earendil-works/pi-coding-agent": "^0.74.0",
+    "typebox": "^1.1.24"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.74.0",
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "typebox": "^1.1.24",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"
   },
@@ -372,4 +360,16 @@ Not blockers for MVP. Documented for the next iteration.
 - **Submitting an upstream `pi` adapter.** If the maintainer changes their stance, replace `rawAdapter`-via-`default` with an explicit `pi` adapter case. Code-path stays subprocess; only the platform-name validation moves upstream.
 - **Capture batching.** If subprocess spawn rate (one per tool_result) ever becomes a measurable cost, switch capture to a long-lived child process with stdin-multiplexing. Not needed at MVP scale.
 - **Pi tool surface beyond `mem_search`.** If demand emerges, add `mem_recent`, `mem_smart_search`, etc. that wrap `/api/*` endpoints.
+
+## 10. Revision History
+
+Code snippets in this spec were corrected post-execution on 2026-05-26 to match what actually shipped. The corrections came from running `pi install` against a live claude-mem worker and discovering contract drift between assumed and actual behavior.
+
+| Date | Commit | Section(s) | What changed |
+|---|---|---|---|
+| 2026-05-26 | `7bd6feb` | §3.2, §8 | `pi.registerTool` is single-arg with `name`/`label`/TypeBox `parameters`/`execute()` (return `{content, details}`). TypeBox restored to peerDeps. |
+| 2026-05-26 | `b4f5ac9` | §4.1, §5.4 | `/api/search` returns MCP content-block `{ content: [{type,text}] }`, not `{ results: [...] }`. pi-mem passes through claude-mem's pre-formatted markdown via `extractMarkdown(res.content)`. `limit` forwarded as `?limit=N`. |
+| 2026-05-26 | `c9e88bd` | (none in spec; see plan T12) | `extractTextContent` helper for pi 0.74+ content-block message arrays. |
+| 2026-05-26 | `6f5aa02` | §4.2 | `state.rootPath` derived from `ctx.cwd` (pi-canonical) with `process.cwd()` fallback. |
+| 2026-05-26 | `e05dc97` | §4.4 | `setTimeout` for capture force-kill also `.unref()`'d alongside `child.unref()` so pi can exit cleanly. |
 - **TUI widget for inject status.** Instead of one-shot `ctx.ui.notify`, use `ctx.ui.setStatus('pi-mem', '✓ memory loaded (N obs)')` for sustained footer indication.
