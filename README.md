@@ -54,7 +54,7 @@ Inherited from claude-mem (transparent — no pi-mem env var introduced):
 - **`claude-mem is not installed`** — run `npx claude-mem install`.
 - **`claude-mem worker failed to start`** — try `npx claude-mem start` manually. Inspect with `npx claude-mem status`.
 - **No TUI banner** — set `CLAUDE_MEM_CONTEXT_SHOW_TERMINAL_OUTPUT=true` in `~/.claude-mem/settings.json` (claude-mem only emits `systemMessage` when this is on).
-- **Memory feels stale** — pi-mem caches context once per session at `session_start`. Restart the pi session to refresh.
+- **Memory feels stale** — pi-mem caches the auto-injected context once per session at `session_start`, so newly captured observations won't appear in `systemPrompt` until you restart the pi session. The `mem_search` tool is unaffected — it always hits the live `/api/search` endpoint and reflects current corpus state, so use it when you need up-to-date results mid-session.
 
 ## License
 
