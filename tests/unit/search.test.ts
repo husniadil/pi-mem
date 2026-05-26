@@ -14,15 +14,30 @@ describe('search', () => {
   });
   afterEach(() => { vi.unstubAllGlobals(); });
 
-  it('GET /api/search?query=… with correct URL', async () => {
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ results: [] }) });
+  it('GET /api/search?query=… with correct URL (no limit)', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
     await search('auth middleware', { env, logger: log, timeoutMs: 1000 });
     const url = fetchMock.mock.calls[0]![0];
-    expect(url).toBe('http://127.0.0.1:37777/api/search?query=auth%20middleware');
+    expect(url).toBe('http://127.0.0.1:37777/api/search?query=auth+middleware');
   });
 
-  it('returns parsed JSON on success', async () => {
-    const body = { results: [{ title: 'A' }] };
+  it('forwards limit as query param when provided', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await search('x', { env, logger: log, timeoutMs: 1000, limit: 5 });
+    const url = fetchMock.mock.calls[0]![0];
+    expect(url).toBe('http://127.0.0.1:37777/api/search?query=x&limit=5');
+  });
+
+  it('omits limit param when 0 or negative or undefined', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ content: [] }) });
+    await search('x', { env, logger: log, timeoutMs: 1000, limit: 0 });
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://127.0.0.1:37777/api/search?query=x');
+    await search('x', { env, logger: log, timeoutMs: 1000, limit: -1 });
+    expect(fetchMock.mock.calls[1]![0]).toBe('http://127.0.0.1:37777/api/search?query=x');
+  });
+
+  it('returns parsed JSON (MCP content shape) on success', async () => {
+    const body = { content: [{ type: 'text', text: 'Found 3 results' }] };
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
     const r = await search('q', { env, logger: log, timeoutMs: 1000 });
     expect(r).toEqual(body);

@@ -28,17 +28,17 @@ export interface HookResponse {
   systemMessage?: string;
 }
 
-export interface SearchResult {
-  id?: string;
-  title?: string;
-  narrative?: string;
-  filesModified?: string[];
-  createdAt?: string;
-  [k: string]: unknown;
+/**
+ * MCP-style content block returned by claude-mem's /api/search.
+ * Markdown is pre-formatted by claude-mem — pi-mem passes it through to the LLM as-is.
+ */
+export interface SearchContentBlock {
+  type: string;
+  text: string;
 }
 
 export interface SearchResponse {
-  results?: SearchResult[];
+  content?: SearchContentBlock[];
   [k: string]: unknown;
 }
 

@@ -6,12 +6,17 @@ interface SearchOpts {
   env: NodeJS.ProcessEnv;
   logger: Logger;
   timeoutMs: number;
+  limit?: number;
 }
 
 export async function search(query: string, opts: SearchOpts): Promise<SearchResponse> {
   const host = resolveHost(opts.env);
   const port = resolvePort(opts.env);
-  const url = `http://${host}:${port}/api/search?query=${encodeURIComponent(query)}`;
+  const params = new URLSearchParams({ query });
+  if (typeof opts.limit === 'number' && opts.limit > 0) {
+    params.set('limit', String(opts.limit));
+  }
+  const url = `http://${host}:${port}/api/search?${params.toString()}`;
   opts.logger.debug(`search GET ${url}`);
 
   let res: Response;
