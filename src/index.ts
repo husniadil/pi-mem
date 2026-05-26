@@ -22,9 +22,15 @@ export default async function piMem(pi: any): Promise<void> {
 
   pi.on('session_start', async (event: any, ctx: any) => {
     const sessionId = deriveSessionId(event);
+    // Prefer pi's canonical ctx.cwd over Node's process.cwd().
+    // Pi sessions may run in a sandboxed working dir distinct from the
+    // process cwd; ctx.cwd is the documented extension-facing accessor.
+    const piCwd = (ctx && typeof ctx.cwd === 'string' && ctx.cwd.length > 0)
+      ? ctx.cwd
+      : process.cwd();
     let rootPath: string;
-    try { rootPath = realpathSync(process.cwd()); }
-    catch { rootPath = process.cwd(); }
+    try { rootPath = realpathSync(piCwd); }
+    catch { rootPath = piCwd; }
 
     state = createSessionState({ sessionId, rootPath });
 
