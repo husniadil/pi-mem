@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { resolvePaths } from '../../src/paths.ts';
 import { runStart, runHook } from '../../src/worker.ts';
-import { search } from '../../src/search.ts';
-import { handleSearch, extractMarkdown } from '../../src/tool.ts';
+import { search, getObservations } from '../../src/search.ts';
+import { handleSearch, handleGetObservations, extractMarkdown } from '../../src/tool.ts';
 import { createSessionState } from '../../src/session.ts';
 import { createLogger } from '../../src/logger.ts';
 
@@ -125,6 +125,53 @@ describe.skipIf(!haveClaudeMem)('pi-mem ↔ claude-mem worker (real)', () => {
           prompt: 'hari ini saya ngapain aja?'  // realistic user prompt
         },
         { timeoutMs: 30000, logger: log }
+      )
+    ).resolves.not.toThrow();
+  });
+
+  // --- mem_get_observations drift guards ---
+
+  it('DRIFT GUARD: POST /api/observations/batch returns bare JSON array (not wrapped in content)', async () => {
+    // claude-mem ResultFormatter.ts:137 emits observation rows as `| #<id> | ... |`,
+    // while sessions/prompts use `#S<id>` / `#P<id>` (which we deliberately exclude).
+    // The "Found N result(s)" header has a bare integer, also non-matching.
+    const searchRes = await search('the', { env, logger: log, timeoutMs: 5000 });
+    const idMatch = (searchRes.content?.[0]?.text ?? '').match(/\| #(\d+) \|/);
+    if (!idMatch) {
+      // Empty corpus or only session/prompt results — skip without failing.
+      return;
+    }
+    const id = parseInt(idMatch[1]!, 10);
+
+    const records = await getObservations({ ids: [id] }, { env, logger: log, timeoutMs: 5000 });
+    expect(Array.isArray(records), 'response.body must be a bare array (NOT wrapped in {content:[...]} like /api/search)').toBe(true);
+    expect(records.length, 'at least one record returned').toBeGreaterThan(0);
+
+    const first = records[0]!;
+    for (const key of ['id', 'memory_session_id', 'project', 'text', 'type', 'created_at', 'created_at_epoch', 'content_hash', 'relevance_count']) {
+      expect(first, `record missing field "${key}"`).toHaveProperty(key);
+    }
+  });
+
+  it('DRIFT GUARD: non-existent IDs return empty array (silently dropped)', async () => {
+    const records = await getObservations({ ids: [99999999] }, { env, logger: log, timeoutMs: 5000 });
+    expect(records).toEqual([]);
+  });
+
+  it('DRIFT GUARD: handleGetObservations stringifies bare array with 2-space indent', async () => {
+    const state2 = { ...createSessionState({ sessionId: 'pi-mem-integration-test', rootPath: process.cwd() }) };
+    const r = await handleGetObservations(
+      { ids: [99999999] },
+      { state: state2, env, logger: log, timeoutMs: 5000 }
+    );
+    expect(r).toBe('[]');
+  });
+
+  it('DRIFT GUARD: optional orderBy / limit / project accepted by /api/observations/batch', async () => {
+    await expect(
+      getObservations(
+        { ids: [1, 2, 3], orderBy: 'date_desc', limit: 2 },
+        { env, logger: log, timeoutMs: 5000 }
       )
     ).resolves.not.toThrow();
   });
