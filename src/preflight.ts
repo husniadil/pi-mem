@@ -5,6 +5,17 @@ import { runStart } from './worker.ts';
 import type { ResolvedPaths } from './types.ts';
 import type { Logger } from './logger.ts';
 
+/**
+ * Result of preflight orchestration.
+ *
+ * `paths` semantics:
+ * - `null` when path discovery failed (claude-mem not installed)
+ * - non-null but `ok: false` when paths were resolved but a later check
+ *   failed (version mismatch, worker start failed). Kept non-null so callers
+ *   can include the discovered location in diagnostic output.
+ *
+ * Callers should gate downstream operations on `ok` (not `paths != null`).
+ */
 export interface PreflightResult {
   ok: boolean;
   reason?: string;
